@@ -20,48 +20,40 @@ type Cidr = Cidr Ip Int
 
 cidrFromString : String -> Result String Cidr
 cidrFromString s =
-    let 
+    let
         split : String -> Result String (String, String)
-        split s = 
+        split s =
             case String.split "/" s of
-                [addr, block] ->
-                    Ok (addr, block)
-                _ ->
-                    Err "invalid CIDR block"
+                [addr, block] -> Ok (addr, block)
+                _ -> Err "invalid CIDR block"
+
+        mergeOctets : Int -> List String -> Result String Ip
+        mergeOctets ip octets =
+            case octets of
+                [] ->
+                    Ok ip
+
+                octet :: rest ->
+                    String.toInt octet
+                        |> Result.map (\i -> (Bitwise.or ip (Bitwise.shiftLeftBy (8 * List.length rest) i)))
+                        |> Result.andThen (\ip -> mergeOctets ip rest)
+
 
         parseAddr : String -> Result String Ip
         parseAddr addr =
             let
-                parts = String.split "." addr
-
-                reduce : Int -> List String -> Result String Ip -> Result String Ip
-                reduce shift parts res =
-                    case res of
-                        Ok ip ->
-                            case parts of
-                                [] ->
-                                    Ok ip
-
-                                part :: rest ->
-                                    String.toInt part 
-                                        |> Result.map (\i -> (Bitwise.or ip (Bitwise.shiftLeftBy shift i)))
-                                        |> Result.andThen (\i -> reduce (shift - 8) rest (Ok i))
-
-                        _ -> res
+                octets = String.split "." addr
             in
-                if List.length parts == 4
-                    then reduce 24 parts (Ok 0)
+                if List.length octets == 4
+                    then mergeOctets 0 octets
                     else Err "invalid address"
 
         parseBlock : String -> Result String Int
         parseBlock = String.toInt
-
-        combine : Result String Ip -> Result String Int -> Result String Cidr
-        combine addr block =
-            Result.map2 (Cidr) addr block
     in
         split s
-            |> Result.andThen (\(a, b) -> combine (parseAddr a) (parseBlock b))
+            |> Result.andThen (\(a, b) -> Result.map2 Cidr (parseAddr a) (parseBlock b))
+            -- TODO(bkeyes): mask addr with block
 
 
 -- END CIDR HACKS
