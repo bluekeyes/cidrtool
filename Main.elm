@@ -16,16 +16,17 @@ main =
 
 type alias Ip = Int
 
+-- TODO(bkeyes): convert this to an opaque, internal type?
 type Cidr = Cidr Ip Int
 
-cidrFromString : String -> Result String Cidr
-cidrFromString s =
+ipFromString : String -> Result String Ip
+ipFromString addr =
     let
-        split : String -> Result String (String, String)
-        split s =
-            case String.split "/" s of
-                [addr, block] -> Ok (addr, block)
-                _ -> Err "invalid CIDR block"
+        checkOctet : Int -> Result String Int
+        checkOctet i =
+            if i > 255 || i < 0
+                then Err "invalid address (octet out of range)"
+                else Ok i
 
         mergeOctets : Int -> List String -> Result String Ip
         mergeOctets ip octets =
@@ -35,25 +36,59 @@ cidrFromString s =
 
                 octet :: rest ->
                     String.toInt octet
-                        |> Result.map (\i -> (Bitwise.or ip (Bitwise.shiftLeftBy (8 * List.length rest) i)))
+                        |> Result.andThen checkOctet
+                        |> Result.map (\i -> Bitwise.or ip (Bitwise.shiftLeftBy (8 * List.length rest) i))
                         |> Result.andThen (\ip -> mergeOctets ip rest)
 
 
-        parseAddr : String -> Result String Ip
-        parseAddr addr =
-            let
-                octets = String.split "." addr
-            in
-                if List.length octets == 4
-                    then mergeOctets 0 octets
-                    else Err "invalid address"
+        octets = String.split "." addr
+    in
+        if List.length octets == 4
+            then mergeOctets 0 octets
+            else Err "invalid address (too many octets)"
 
-        parseBlock : String -> Result String Int
-        parseBlock = String.toInt
+ipToString : Ip -> String
+ipToString ip =
+    let
+        octetToString i =
+            toString (Bitwise.and 0xFF (Bitwise.shiftRightBy i ip))
+    in
+        String.join "." (List.map octetToString [24, 16, 8, 0])
+
+
+applyMask : Int -> Ip -> Ip
+applyMask mask addr =
+    Bitwise.and addr (Bitwise.shiftLeftBy (32 - mask) 0xFFFFFFFF)
+
+cidrFromString : String -> Result String Cidr
+cidrFromString s =
+    let
+        split : String -> Result String (String, String)
+        split s =
+            case String.split "/" s of
+                [addr, mask] -> Ok (addr, mask)
+                _ -> Err "invalid CIDR block (bad format)"
+
+        checkMask : Int -> Result String Int
+        checkMask m =
+            if m > 32 || m < 0
+                then Err "invalid CIDR block (mask out of range)"
+                else Ok m
+
+        parseMask : String -> Result String Int
+        parseMask mask =
+            String.toInt mask |> Result.andThen checkMask
+
+        cidr : Ip -> Int -> Cidr
+        cidr addr mask =
+            Cidr (applyMask mask addr) mask
     in
         split s
-            |> Result.andThen (\(a, b) -> Result.map2 Cidr (parseAddr a) (parseBlock b))
-            -- TODO(bkeyes): mask addr with block
+            |> Result.andThen (\(addr, mask) -> Result.map2 cidr (ipFromString addr) (parseMask mask))
+
+cidrToString : Cidr -> String
+cidrToString (Cidr addr mask) =
+    (ipToString addr) ++ "/" ++ (toString mask)
 
 
 -- END CIDR HACKS
@@ -83,5 +118,5 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        [ text "placeholder"
+        [ text (cidrToString (Result.withDefault (Cidr 0 0) (cidrFromString "192.168.1.4/31")))
         ]
