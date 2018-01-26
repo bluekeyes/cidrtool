@@ -71,7 +71,10 @@ ipToString ip =
 
 applyMask : Int -> Ip -> Ip
 applyMask mask addr =
-    Bitwise.and addr (Bitwise.shiftLeftBy (32 - mask) 0xFFFFFFFF)
+    if mask == 0 then
+        0
+    else
+        Bitwise.and addr (Bitwise.shiftLeftBy (32 - mask) 0xFFFFFFFF)
 
 
 cidrFromString : String -> Result String Cidr
@@ -108,6 +111,24 @@ cidrFromString s =
 cidrToString : Cidr -> String
 cidrToString (Cidr addr mask) =
     ipToString addr ++ "/" ++ toString mask
+
+
+firstAddress : Cidr -> Ip
+firstAddress (Cidr addr _) =
+    addr
+
+
+lastAddress : Cidr -> Ip
+lastAddress (Cidr addr mask) =
+    if mask == 0 then
+        0xFFFFFFFF
+    else
+        addr + Bitwise.shiftLeftBy (32 - mask) 1 - 1
+
+
+inBlock : Cidr -> Ip -> Bool
+inBlock cidr ip =
+    firstAddress cidr <= ip && ip <= lastAddress cidr
 
 
 
