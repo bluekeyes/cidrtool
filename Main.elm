@@ -69,12 +69,12 @@ ipToString ip =
     String.join "." (List.map octetToString [ 24, 16, 8, 0 ])
 
 
-applyMask : Int -> Ip -> Ip
-applyMask mask addr =
-    if mask == 0 then
-        0
+makeCidr : Ip -> Int -> Cidr
+makeCidr addr bits =
+    if bits == 0 then
+        Cidr 0 0
     else
-        Bitwise.and addr (Bitwise.shiftLeftBy (32 - mask) 0xFFFFFFFF)
+        Cidr (Bitwise.and addr (Bitwise.shiftLeftBy (32 - bits) 0xFFFFFFFF)) bits
 
 
 cidrFromString : String -> Result String Cidr
@@ -99,13 +99,9 @@ cidrFromString s =
         parseMask : String -> Result String Int
         parseMask mask =
             String.toInt mask |> Result.andThen checkMask
-
-        cidr : Ip -> Int -> Cidr
-        cidr addr mask =
-            Cidr (applyMask mask addr) mask
     in
     split s
-        |> Result.andThen (\( addr, mask ) -> Result.map2 cidr (ipFromString addr) (parseMask mask))
+        |> Result.andThen (\( addr, mask ) -> Result.map2 makeCidr (ipFromString addr) (parseMask mask))
 
 
 cidrToString : Cidr -> String
@@ -146,15 +142,35 @@ inBlock cidr ip =
     firstAddress cidr <= ip && ip < nextAddress cidr
 
 
-subtract : Cidr -> Cidr -> List Cidr
-subtract minuend subtrahend =
+intersects : Cidr -> Cidr -> Bool
+intersects cidr other =
     let
+        test : Cidr -> Cidr -> Bool
+        test x y =
+            firstAddress x >= firstAddress y && firstAddress x < nextAddress y
+    in
+    test cidr other || test other cidr
+
+
+subtract : Cidr -> List Cidr -> List Cidr
+subtract minuend subtrahends =
+    let
+        toRanges : List Cidr -> List ( Ip, Ip )
+        toRanges cidrs =
+            cidrs
+                |> List.filter (intersects minuend)
+                |> List.sortBy firstAddress
+                |> List.map (\c -> ( firstAddress c, nextAddress c ))
+
         largestFit : Ip -> Ip -> Int -> Maybe Cidr
         largestFit start end bits =
+            let
+                candidate = makeCidr start bits
+            in
             if start >= end then
                 Nothing
-            else if nextAddress (Cidr start bits) <= end then
-                Just (Cidr start bits)
+            else if nextAddress candidate <= end && firstAddress candidate == start then
+                Just candidate
             else
                 largestFit start end (bits + 1)
 
@@ -165,10 +181,17 @@ subtract minuend subtrahend =
                     []
 
                 Just cidr ->
-                    cidr :: fill (nextAddress cidr) end (maskBits cidr)
-    in
-    fill (address minuend) (address subtrahend) (maskBits minuend) ++ fill (nextAddress subtrahend) (nextAddress minuend) (maskBits minuend)
+                    cidr :: fill (nextAddress cidr) end bits
 
+        reduce : ( Ip, Ip ) -> ( Ip, List (List Cidr) ) -> ( Ip, List (List Cidr) )
+        reduce ( to, next ) ( start, r ) =
+            ( next, fill start to (maskBits minuend) :: r )
+    in
+        toRanges subtrahends ++ [ ( nextAddress minuend, 0xFFFFFFFF ) ]
+            |> List.foldl reduce ( address minuend, [] )
+            |> Tuple.second
+            |> List.concat
+            |> List.sortBy firstAddress
 
 
 -- END CIDR HACKS
