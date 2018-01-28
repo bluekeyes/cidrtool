@@ -113,22 +113,61 @@ cidrToString (Cidr addr mask) =
     ipToString addr ++ "/" ++ toString mask
 
 
+address : Cidr -> Ip
+address (Cidr addr _) =
+    addr
+
+
+maskBits : Cidr -> Int
+maskBits (Cidr _ mask) =
+    mask
+
+
 firstAddress : Cidr -> Ip
 firstAddress (Cidr addr _) =
     addr
 
 
-lastAddress : Cidr -> Ip
-lastAddress (Cidr addr mask) =
+nextAddress : Cidr -> Ip
+nextAddress (Cidr addr mask) =
     if mask == 0 then
-        0xFFFFFFFF
+        0
     else
-        addr + Bitwise.shiftLeftBy (32 - mask) 1 - 1
+        addr + Bitwise.shiftLeftBy (32 - mask) 1
+
+
+lastAddress : Cidr -> Ip
+lastAddress cidr =
+    nextAddress cidr - 1
 
 
 inBlock : Cidr -> Ip -> Bool
 inBlock cidr ip =
-    firstAddress cidr <= ip && ip <= lastAddress cidr
+    firstAddress cidr <= ip && ip < nextAddress cidr
+
+
+subtract : Cidr -> Cidr -> List Cidr
+subtract minuend subtrahend =
+    let
+        largestFit : Ip -> Ip -> Int -> Maybe Cidr
+        largestFit start end bits =
+            if start >= end then
+                Nothing
+            else if nextAddress (Cidr start bits) <= end then
+                Just (Cidr start bits)
+            else
+                largestFit start end (bits + 1)
+
+        fill : Ip -> Ip -> Int -> List Cidr
+        fill start end bits =
+            case largestFit start end bits of
+                Nothing ->
+                    []
+
+                Just cidr ->
+                    cidr :: fill (nextAddress cidr) end (maskBits cidr)
+    in
+    fill (address minuend) (address subtrahend) (maskBits minuend) ++ fill (nextAddress subtrahend) (nextAddress minuend) (maskBits minuend)
 
 
 
