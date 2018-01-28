@@ -2,6 +2,8 @@ module Main exposing (..)
 
 import Bitwise
 import Html exposing (..)
+import Html.Attributes exposing (..)
+import Html.Events exposing (onInput)
 
 
 main =
@@ -199,27 +201,60 @@ subtract minuend subtrahends =
 
 type alias Model =
     { cidr : Cidr
+    , parseError : String
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model (Cidr 0 0), Cmd.none )
+    ( Model (Cidr 0 0) "", Cmd.none )
 
 
 type Msg
-    = DoNothing
+    = NewInput String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        DoNothing ->
-            ( model, Cmd.none )
+        NewInput input ->
+            case cidrFromString input of
+                Ok cidr ->
+                    ( { model | cidr = cidr, parseError = "" }, Cmd.none )
+
+                Err err ->
+                    ( { model | cidr = Cidr 0 0, parseError = err }, Cmd.none )
+
+
+test : Cidr -> Html Msg
+test cidr =
+    let
+        cidrToRow : Cidr -> Html Msg
+        cidrToRow cidr =
+            tr []
+                [ td [] [ text (cidrToString cidr) ]
+                , td [] [ text (ipToString (lastAddress cidr)) ]
+                ]
+
+        makeTable : List String -> List (Html Msg) -> Html Msg
+        makeTable headers rows =
+            table []
+                [ thead [] [ tr [] (List.map (\s -> th [] [ text s ]) headers) ]
+                , tbody [] rows
+                ]
+    in
+    cidrFromString "10.0.0.0/8"
+        |> Result.map (\c -> subtract c [cidr])
+        |> Result.map (\cs -> makeTable [ "CIDR", "Last IP" ] (List.map cidrToRow cs))
+        |> Result.withDefault (div [] [ text "invalid cidr literal in code" ])
 
 
 view : Model -> Html Msg
 view model =
     div []
-        [ text (cidrToString (Result.withDefault (Cidr 0 0) (cidrFromString "192.168.1.4/31")))
+        [ div [] [ text "10.0.0.0/8" ]
+        , input [ placeholder "Enter CIDR block", onInput NewInput ] []
+        , div [] [ text (cidrToString model.cidr) ]
+        , div [] [ text model.parseError ]
+        , test model.cidr
         ]
