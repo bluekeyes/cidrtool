@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Bitwise
 import Html exposing (..)
-import Html.Attributes exposing (placeholder)
+import Html.Attributes exposing (class, placeholder, type_)
 import Html.Events exposing (onInput)
 
 
@@ -35,7 +35,7 @@ ipFromString addr =
         checkOctet : Int -> Result String Int
         checkOctet i =
             if i > 255 || i < 0 then
-                Err "invalid address (octet out of range)"
+                Err "Invalid address: octet out of range"
             else
                 Ok i
 
@@ -47,6 +47,7 @@ ipFromString addr =
 
                 octet :: rest ->
                     String.toInt octet
+                        |> Result.mapError (always "Invalid address: octet is not a number")
                         |> Result.andThen checkOctet
                         |> Result.map (\i -> Bitwise.or ip (Bitwise.shiftLeftBy (8 * List.length rest) i))
                         |> Result.andThen (\ip -> mergeOctets ip rest)
@@ -57,7 +58,7 @@ ipFromString addr =
     if List.length octets == 4 then
         mergeOctets 0 octets
     else
-        Err "invalid address (too many octets)"
+        Err "Invalid address: wrong number of octets"
 
 
 ipToString : Ip -> String
@@ -83,16 +84,22 @@ cidrFromString s =
         split : String -> Result String ( String, String )
         split s =
             case String.split "/" s of
+                [ addr ] ->
+                    Err "Invalid CIDR block: missing mask"
+
+                [ addr, "" ] ->
+                    Err "Invalid CIDR block: missing mask"
+
                 [ addr, mask ] ->
                     Ok ( addr, mask )
 
                 _ ->
-                    Err "invalid CIDR block (bad format)"
+                    Err "Invalid CIDR block: too many masks"
 
         checkMask : Int -> Result String Int
         checkMask m =
             if m > 32 || m < 0 then
-                Err "invalid CIDR block (mask out of range)"
+                Err "Invalid CIDR block: mask out of range"
             else
                 Ok m
 
@@ -250,12 +257,19 @@ test cidr =
         |> Result.withDefault (div [] [ text "invalid cidr literal in code" ])
 
 
+cidrInput : (String -> Msg) -> String -> Html Msg
+cidrInput action error =
+    div [ class "measure pa3 bg-light-gray ba b--moon-gray br1 ma3" ]
+        [ label [ class "f6 b db mb2" ] [ text "CIDR block" ]
+        , input [ class "input-reset ba b--black-20 pa2 mb2 db w-100", type_ "text", onInput action ] []
+        , small [ class "f6 red db mb2" ] [ text error ]
+        ]
+
+
 view : Model -> Html Msg
 view model =
     div []
-        [ div [] [ text "10.0.0.0/8" ]
-        , input [ placeholder "Enter CIDR block", onInput NewInput ] []
+        [ cidrInput NewInput model.parseError
         , div [] [ text (cidrToString model.cidr) ]
-        , div [] [ text model.parseError ]
         , test model.cidr
         ]
