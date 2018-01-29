@@ -11,6 +11,7 @@ module Cidr
         , lastAddress
         , maskBits
         , nextAddress
+        , size
         , subtract
         , toString
         , zero
@@ -26,7 +27,7 @@ module Cidr
 
 ## CIDR Blocks
 
-@docs Cidr, fromString, toString, zero, firstAddress, maskBits, nextAddress, lastAddress
+@docs Cidr, fromString, toString, zero, firstAddress, maskBits, nextAddress, lastAddress, size
 @docs inBlock, intersects, subtract
 
 -}
@@ -144,8 +145,8 @@ fromString s =
 {-| Returns a string representation of a CIDR block.
 -}
 toString : Cidr -> String
-toString (Cidr addr mask) =
-    ipToString addr ++ "/" ++ Basics.toString mask
+toString (Cidr addr bits) =
+    ipToString addr ++ "/" ++ Basics.toString bits
 
 
 {-| Returns the number of leading bits in the CIDR blocks routing mask.
@@ -153,6 +154,13 @@ toString (Cidr addr mask) =
 maskBits : Cidr -> Int
 maskBits (Cidr _ bits) =
     bits
+
+
+{-| Returns the size (number of IP addresses) of the CIDR block.
+-}
+size : Cidr -> Int
+size (Cidr _ bits) =
+    2 ^ (32 - bits)
 
 
 {-| Returns the first IP address in a CIDR block.
@@ -165,11 +173,11 @@ firstAddress (Cidr addr _) =
 {-| Returns the first IP address that comes after a CIDR block.
 -}
 nextAddress : Cidr -> Ip
-nextAddress (Cidr addr mask) =
-    if mask == 0 then
+nextAddress (Cidr addr bits) =
+    if bits == 0 then
         0
     else
-        addr + Bitwise.shiftLeftBy (32 - mask) 1
+        addr + 2 ^ (32 - bits)
 
 
 {-| Returns the last IP address in a CIDR block.
