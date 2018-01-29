@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Bitwise
 import Html exposing (..)
-import Html.Attributes exposing (..)
+import Html.Attributes exposing (placeholder)
 import Html.Events exposing (onInput)
 
 
@@ -23,11 +23,9 @@ type alias Ip =
     Int
 
 
-
--- TODO(bkeyes): convert this to an opaque, internal type?
-
-
-type Cidr
+type
+    Cidr
+    -- TODO(bkeyes): convert this to an opaque, internal type?
     = Cidr Ip Int
 
 
@@ -113,12 +111,13 @@ cidrToString (Cidr addr mask) =
 
 address : Cidr -> Ip
 address (Cidr addr _) =
+    -- TODO(bkeyes): this function is identical to firstAddress
     addr
 
 
 maskBits : Cidr -> Int
-maskBits (Cidr _ mask) =
-    mask
+maskBits (Cidr _ bits) =
+    bits
 
 
 firstAddress : Cidr -> Ip
@@ -157,17 +156,23 @@ intersects cidr other =
 subtract : Cidr -> List Cidr -> List Cidr
 subtract minuend subtrahends =
     let
-        toRanges : List Cidr -> List ( Ip, Ip )
-        toRanges cidrs =
-            cidrs
-                |> List.filter (intersects minuend)
-                |> List.sortBy firstAddress
-                |> List.map (\c -> ( firstAddress c, nextAddress c ))
+        toRanges : Ip -> Ip -> List Cidr -> List ( Ip, Ip )
+        toRanges start end cidrs =
+            case cidrs of
+                [] ->
+                    [ ( start, end ) ]
+
+                c :: rest ->
+                    if firstAddress c <= start || nextAddress c <= start then
+                        toRanges (max start (nextAddress c)) end rest
+                    else
+                        ( start, firstAddress c ) :: toRanges (nextAddress c) end rest
 
         largestFit : Ip -> Ip -> Int -> Maybe Cidr
         largestFit start end bits =
             let
-                candidate = makeCidr start bits
+                candidate =
+                    makeCidr start bits
             in
             if start >= end then
                 Nothing
@@ -176,24 +181,20 @@ subtract minuend subtrahends =
             else
                 largestFit start end (bits + 1)
 
-        fill : Ip -> Ip -> Int -> List Cidr
-        fill start end bits =
+        fillRange : Int -> ( Ip, Ip ) -> List Cidr
+        fillRange bits ( start, end ) =
             case largestFit start end bits of
                 Nothing ->
                     []
 
                 Just cidr ->
-                    cidr :: fill (nextAddress cidr) end bits
-
-        reduce : ( Ip, Ip ) -> ( Ip, List (List Cidr) ) -> ( Ip, List (List Cidr) )
-        reduce ( to, next ) ( start, r ) =
-            ( next, fill start to (maskBits minuend) :: r )
+                    cidr :: fillRange bits ( nextAddress cidr, end )
     in
-        toRanges subtrahends ++ [ ( nextAddress minuend, 0xFFFFFFFF ) ]
-            |> List.foldl reduce ( address minuend, [] )
-            |> Tuple.second
-            |> List.concat
-            |> List.sortBy firstAddress
+    subtrahends
+        |> List.sortBy firstAddress
+        |> toRanges (firstAddress minuend) (nextAddress minuend)
+        |> List.concatMap (fillRange (maskBits minuend))
+
 
 
 -- END CIDR HACKS
@@ -244,7 +245,7 @@ test cidr =
                 ]
     in
     cidrFromString "10.0.0.0/8"
-        |> Result.map (\c -> subtract c [cidr])
+        |> Result.map (\c -> subtract c [ cidr ])
         |> Result.map (\cs -> makeTable [ "CIDR", "Last IP" ] (List.map cidrToRow cs))
         |> Result.withDefault (div [] [ text "invalid cidr literal in code" ])
 
