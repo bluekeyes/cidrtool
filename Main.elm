@@ -69,8 +69,23 @@ cidrInput : (String -> Msg) -> String -> Html Msg
 cidrInput action error =
     div [ class "measure pa3 bg-light-gray ba b--moon-gray br1 ma3" ]
         [ label [ class "f6 b db mb2" ] [ text "CIDR block" ]
-        , input [ class "input-reset ba b--black-20 pa2 mb2 db w-100", type_ "text", onInput action ] []
+        , input [ class "input-reset ba b--black-20 pa2 mb2 db w-100", type_ "text", placeholder "0.0.0.0/0", onInput action ] []
         , small [ class "f6 red db mb2" ] [ text error ]
+        ]
+
+
+cidrInfo : Cidr -> Html Msg
+cidrInfo cidr =
+    div []
+        [ h2 [] [ text (Cidr.toString cidr) ]
+        , dl []
+            [ dt [] [ text "Size" ]
+            , dd [] [ text (toString (Cidr.size cidr)) ]
+            , dt [] [ text "First Address" ]
+            , dd [] [ text (Cidr.ipToString (Cidr.firstAddress cidr)) ]
+            , dt [] [ text "Last Address" ]
+            , dd [] [ text (Cidr.ipToString (Cidr.lastAddress cidr)) ]
+            ]
         ]
 
 
@@ -78,6 +93,6 @@ view : Model -> Html Msg
 view model =
     div []
         [ cidrInput NewInput model.parseError
-        , div [] [ text (Cidr.toString model.cidr) ]
+        , cidrInfo model.cidr
         , test model.cidr
         ]
