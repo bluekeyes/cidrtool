@@ -82,7 +82,7 @@ ipFromString addr =
 
                 octet :: rest ->
                     String.toInt octet
-                        |> Result.mapError (always "Invalid address: octet is not a number")
+                        |> Result.mapError (always "Invalid address: octet is not an integer")
                         |> Result.andThen checkOctet
                         |> Result.map (\i -> Bitwise.or ip (Bitwise.shiftLeftBy (8 * List.length rest) i))
                         |> Result.andThen (\ip -> mergeOctets ip rest)
@@ -136,7 +136,9 @@ fromString s =
 
         parseMask : String -> Result String Int
         parseMask mask =
-            String.toInt mask |> Result.andThen checkMask
+            String.toInt mask
+                |> Result.mapError (always "Invalid CIDR block: mask is not an integer")
+                |> Result.andThen checkMask
     in
     split s
         |> Result.andThen (\( addr, mask ) -> Result.map2 makeCidr (ipFromString addr) (parseMask mask))
