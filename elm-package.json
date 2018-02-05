@@ -4,8 +4,7 @@
     "repository": "https://github.com/bluekeyes/elm-cidr.git",
     "license": "MIT",
     "source-directories": [
-        "src",
-        "."
+        "src"
     ],
     "exposed-modules": [
         "Cidr"
