@@ -8,6 +8,7 @@ import Html.Keyed
 import ParsedInput
 
 
+main : Program Never Model Msg
 main =
     Html.beginnerProgram
         { model = model
@@ -83,15 +84,17 @@ update msg model =
 
 cidrInput : (String -> Msg) -> ParsedInput.State Cidr -> Html Msg
 cidrInput action state =
-    Html.Keyed.node "div"
-        []
-        [ ( "label", label [] [ text "CIDR block" ] )
-        , ( toString state.key
-          , input
-                [ type_ "text", placeholder "0.0.0.0/0", defaultValue state.value, onInput action ]
-                []
-          )
-        , ( "error", small [] [ text state.error ] )
+    form [ class "w-full max-w-md" ]
+        [ Html.Keyed.node "div"
+            [ class "flex items-center justify-between" ]
+            [ ( "label", label [ class "flex-no-shrink min-w-1/4 font-bold" ] [ text "Enter a CIDR block" ] )
+            , ( toString state.key
+              , input
+                    [ type_ "text", defaultValue state.raw, onInput action, class "no-outline bg-transparent border-b border-grey-dark focus:border-blue w-full text-gray-darker mx-3 py-1 px-2 text-center" ]
+                    []
+              )
+            , ( "error", small [ class "flex-no-shrink min-w-1/4 text-red" ] [ text state.error ] )
+            ]
         ]
 
 

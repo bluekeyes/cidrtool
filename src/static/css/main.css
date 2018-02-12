@@ -1,0 +1,6 @@
+@tailwind preflight;
+@tailwind utilities;
+
+.no-outline {
+  outline: none;
+}

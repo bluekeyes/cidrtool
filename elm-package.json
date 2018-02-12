@@ -1,10 +1,10 @@
 {
     "version": "1.0.0",
     "summary": "Manipulate and inspect CIDR blocks",
-    "repository": "https://github.com/bluekeyes/elm-cidr.git",
+    "repository": "https://github.com/bluekeyes/cidrtool.git",
     "license": "MIT",
     "source-directories": [
-        "src"
+        "src/elm"
     ],
     "exposed-modules": [
         "Cidr"
