@@ -5,6 +5,7 @@ import Html exposing (..)
 import Html.Attributes exposing (class, defaultValue, disabled, placeholder, type_)
 import Html.Events exposing (onClick, onInput)
 import Html.Keyed
+import ParsedInput
 
 
 main =
@@ -13,28 +14,6 @@ main =
         , view = view
         , update = update
         }
-
-
-type alias InputState =
-    { key : Int
-    , error : String
-    , value : String
-    }
-
-
-updateInput : (String -> Result String a) -> String -> InputState -> ( Maybe a, InputState )
-updateInput parser value state =
-    case parser value of
-        Ok parsed ->
-            ( Just parsed, { state | value = value, error = "" } )
-
-        Err error ->
-            ( Nothing, { state | value = value, error = error } )
-
-
-resetInput : InputState -> InputState
-resetInput state =
-    InputState (state.key + 1) "" ""
 
 
 type alias SubtractionModel =
@@ -53,20 +32,16 @@ subtract minuend subtrahend model =
 
 
 type alias Model =
-    { cidr : Maybe Cidr
-    , cidrState : InputState
-    , subtrahend : Maybe Cidr
-    , subtrahendState : InputState
+    { cidr : ParsedInput.State Cidr
+    , subtrahend : ParsedInput.State Cidr
     , subtraction : SubtractionModel
     }
 
 
 model : Model
 model =
-    { cidr = Nothing
-    , cidrState = InputState 0 "" ""
-    , subtrahend = Nothing
-    , subtrahendState = InputState 0 "" ""
+    { cidr = ParsedInput.initial
+    , subtrahend = ParsedInput.initial
     , subtraction = SubtractionModel [] []
     }
 
@@ -82,24 +57,23 @@ update msg model =
     case msg of
         CidrInput value ->
             let
-                ( cidr, state ) =
-                    updateInput Cidr.fromString value model.cidrState
+                state =
+                    ParsedInput.update Cidr.fromString value model.cidr
             in
-            { model | cidr = cidr, cidrState = state }
+            { model | cidr = state }
 
         SubtrahendInput value ->
             let
-                ( cidr, state ) =
-                    updateInput Cidr.fromString value model.subtrahendState
+                state =
+                    ParsedInput.update Cidr.fromString value model.subtrahend
             in
-            { model | subtrahend = cidr, subtrahendState = state }
+            { model | subtrahend = state }
 
         -- TODO(bkeyes): take two args or use Maybe.map2 on model?
         Subtract minuend subtrahend ->
             { model
                 | subtraction = subtract minuend subtrahend model.subtraction
-                , subtrahend = Nothing
-                , subtrahendState = resetInput model.subtrahendState
+                , subtrahend = ParsedInput.reset model.subtrahend
             }
 
 
@@ -107,7 +81,7 @@ update msg model =
 -- COMPONENTS --
 
 
-cidrInput : (String -> Msg) -> InputState -> Html Msg
+cidrInput : (String -> Msg) -> ParsedInput.State Cidr -> Html Msg
 cidrInput action state =
     Html.Keyed.node "div"
         []
@@ -171,7 +145,7 @@ subtractor minuend model =
                 div [] [ cidrTable model.subtraction.result ]
 
         submitButton =
-            case model.subtrahend of
+            case model.subtrahend.value of
                 Just cidr ->
                     button [ type_ "button", onClick (Subtract minuend cidr) ] [ text "Subtract" ]
 
@@ -181,7 +155,7 @@ subtractor minuend model =
     div []
         [ h2 [] [ text "Subtract" ]
         , form []
-            [ cidrInput SubtrahendInput model.subtrahendState
+            [ cidrInput SubtrahendInput model.subtrahend
             , submitButton
             ]
         , result
@@ -192,9 +166,9 @@ view : Model -> Html Msg
 view model =
     let
         input =
-            cidrInput CidrInput model.cidrState
+            cidrInput CidrInput model.cidr
     in
-    case model.cidr of
+    case model.cidr.value of
         Just cidr ->
             div []
                 [ input
