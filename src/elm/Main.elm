@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Cidr exposing (Cidr, Ip)
 import Html exposing (..)
-import Html.Attributes exposing (class, defaultValue, disabled, placeholder, type_)
+import Html.Attributes exposing (class, classList, defaultValue, disabled, placeholder, type_)
 import Html.Events exposing (onClick, onInput)
 import Html.Keyed
 import ParsedInput
@@ -165,19 +165,48 @@ subtractor minuend model =
         ]
 
 
+appHeader : Model -> Html Msg
+appHeader model =
+    let
+        hasError =
+            model.cidr.error /= ""
+
+        config =
+            { action = CidrInput
+            , label = "Enter a CIDR block"
+            , labelAttrs = [ class "text-xl font-bold mb-2" ]
+            , inputAttrs =
+                [ placeholder "0.0.0.0/0"
+                , class "w-full py-2 mb-2 no-outline bg-white text-2xl text-center border-b-4 border-blue-lighter"
+                , classList
+                    [ ( "text-blue-darker focus:border-blue", not hasError )
+                    , ( "text-red focus:border-red", hasError )
+                    ]
+                ]
+            , errorAttrs = [ class "text-sm text-red" ]
+            }
+
+        input =
+            ParsedInput.view
+                config
+                [ class "flex flex-col items-center w-full max-w-sm" ]
+                model.cidr
+    in
+    header [ class "w-full my-4 flex flex-col items-center text-blue-darker" ]
+        [ h1 [ class "text-5xl mb-6" ] [ text "cidrtool" ]
+        , input
+        ]
+
+
 view : Model -> Html Msg
 view model =
-    let
-        input =
-            cidrInput CidrInput model.cidr
-    in
     case model.cidr.value of
         Just cidr ->
             div []
-                [ input
+                [ appHeader model
                 , cidrInfo cidr
                 , subtractor cidr model
                 ]
 
         Nothing ->
-            div [] [ input ]
+            div [] [ appHeader model ]
