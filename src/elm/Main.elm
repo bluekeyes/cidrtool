@@ -3,17 +3,16 @@ module Main exposing (..)
 import Cidr exposing (Cidr, Ip)
 import Html exposing (..)
 import Html.Attributes exposing (class, classList, defaultValue, disabled, placeholder, type_)
-import Html.Events exposing (onClick, onInput)
-import Html.Keyed
 import ParsedInput
 
 
 main : Program Never Model Msg
 main =
-    Html.beginnerProgram
-        { model = model
+    Html.program
+        { init = init
         , view = view
         , update = update
+        , subscriptions = always Sub.none
         }
 
 
@@ -33,69 +32,114 @@ subtract minuend subtrahend model =
 
 
 type alias Model =
-    { cidr : ParsedInput.State Cidr
-    , subtrahend : ParsedInput.State Cidr
+    { cidr : Maybe Cidr
+
+    -- subtraction state
+    , subtrahend : Maybe Cidr
     , subtraction : SubtractionModel
+
+    -- input states
+    , cidrInput : ParsedInput.Model
+    , subtrahendInput : ParsedInput.Model
     }
 
 
-model : Model
-model =
-    { cidr = ParsedInput.initial
-    , subtrahend = ParsedInput.initial
-    , subtraction = SubtractionModel [] []
-    }
+init : ( Model, Cmd Msg )
+init =
+    ( { cidr = Nothing
+      , subtrahend = Nothing
+      , subtraction = SubtractionModel [] []
+      , cidrInput = ParsedInput.initial
+      , subtrahendInput = ParsedInput.initial
+      }
+    , Cmd.none
+    )
 
 
 type Msg
-    = CidrInput String
-    | SubtrahendInput String
+    = CidrInput (ParsedInput.Msg Cidr)
+    | SubtrahendInput (ParsedInput.Msg Cidr)
+    | NewCidr (Maybe Cidr)
+    | NewSubtrahend (Maybe Cidr)
     | Subtract Cidr Cidr
 
 
-update : Msg -> Model -> Model
+cidrConfig : ParsedInput.Config Cidr Msg
+cidrConfig =
+    let
+        onView hasError =
+            { label = "Enter a CIDR block"
+            , labelAttrs = [ class "text-xl font-bold mb-2" ]
+            , inputAttrs =
+                [ placeholder "0.0.0.0/0"
+                , class "w-full py-2 mb-2 no-outline bg-white text-2xl text-center border-b-4 border-blue-lighter"
+                , classList
+                    [ ( "text-blue-darker focus:border-blue", not hasError )
+                    , ( "text-red focus:border-red", hasError )
+                    ]
+                ]
+            , errorAttrs = [ class "text-sm text-red" ]
+            }
+    in
+    { parser = Cidr.fromString
+    , onValue = NewCidr
+    , onMsg = CidrInput
+    , onView = onView
+    }
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        CidrInput value ->
+        CidrInput inMsg ->
             let
-                state =
-                    ParsedInput.update Cidr.fromString value model.cidr
+                ( inModel, cmd ) =
+                    ParsedInput.update cidrConfig inMsg model.cidrInput
             in
-            { model | cidr = state }
+            ( { model | cidrInput = inModel }, cmd )
 
-        SubtrahendInput value ->
+        SubtrahendInput inMsg ->
             let
-                state =
-                    ParsedInput.update Cidr.fromString value model.subtrahend
+                -- TODO(bkeyes): use real config
+                ( inModel, cmd ) =
+                    ParsedInput.update cidrConfig inMsg model.subtrahendInput
             in
-            { model | subtrahend = state }
+            ( { model | subtrahendInput = inModel }, cmd )
+
+        NewCidr cidr ->
+            ( { model | cidr = cidr }, Cmd.none )
+
+        NewSubtrahend cidr ->
+            ( { model | subtrahend = cidr }, Cmd.none )
 
         -- TODO(bkeyes): take two args or use Maybe.map2 on model?
         Subtract minuend subtrahend ->
-            { model
+            ( { model
                 | subtraction = subtract minuend subtrahend model.subtraction
-                , subtrahend = ParsedInput.reset model.subtrahend
-            }
+                , subtrahendInput = ParsedInput.reset model.subtrahendInput
+              }
+            , Cmd.none
+            )
 
 
 
 -- COMPONENTS --
-
-
-cidrInput : (String -> Msg) -> ParsedInput.State Cidr -> Html Msg
-cidrInput action state =
-    form [ class "w-full max-w-md" ]
-        [ Html.Keyed.node "div"
-            [ class "flex items-center justify-between" ]
-            [ ( "label", label [ class "flex-no-shrink min-w-1/4 font-bold" ] [ text "Enter a CIDR block" ] )
-            , ( toString state.key
-              , input
-                    [ type_ "text", defaultValue state.raw, onInput action, class "no-outline bg-transparent border-b border-grey-dark focus:border-blue w-full text-gray-darker mx-3 py-1 px-2 text-center" ]
-                    []
-              )
-            , ( "error", small [ class "flex-no-shrink min-w-1/4 text-red" ] [ text state.error ] )
-            ]
-        ]
+{-
+   cidrInput : (String -> Msg) -> ParsedInput.Model Cidr Msg -> Html Msg
+   cidrInput action state =
+       form [ class "w-full max-w-md" ]
+           [ Html.Keyed.node "div"
+               [ class "flex items-center justify-between" ]
+               [ ( "label", label [ class "flex-no-shrink min-w-1/4 font-bold" ] [ text "Enter a CIDR block" ] )
+               , ( toString state.key
+                 , input
+                       [ type_ "text", defaultValue state.raw, onInput action, class "no-outline bg-transparent border-b border-grey-dark focus:border-blue w-full text-gray-darker mx-3 py-1 px-2 text-center" ]
+                       []
+                 )
+               , ( "error", small [ class "flex-no-shrink min-w-1/4 text-red" ] [ text state.error ] )
+               ]
+           ]
+-}
 
 
 cidrInfo : Cidr -> Html Msg
@@ -138,59 +182,44 @@ cidrTable cidrs =
     tableWithRows [ "CIDR Block", "First Address", "Last Address" ] (List.map toRow cidrs)
 
 
-subtractor : Cidr -> Model -> Html Msg
-subtractor minuend model =
-    let
-        result =
-            if List.isEmpty model.subtraction.result then
-                div [] [ text "No results" ]
-            else
-                div [] [ cidrTable model.subtraction.result ]
 
-        submitButton =
-            case model.subtrahend.value of
-                Just cidr ->
-                    button [ type_ "button", onClick (Subtract minuend cidr) ] [ text "Subtract" ]
+{-
+   subtractor : Cidr -> Model -> Html Msg
+   subtractor minuend model =
+       let
+           result =
+               if List.isEmpty model.subtraction.result then
+                   div [] [ text "No results" ]
+               else
+                   div [] [ cidrTable model.subtraction.result ]
 
-                Nothing ->
-                    button [ type_ "button", disabled True ] [ text "Subtract" ]
-    in
-    div []
-        [ h2 [] [ text "Subtract" ]
-        , form []
-            [ cidrInput SubtrahendInput model.subtrahend
-            , submitButton
-            ]
-        , result
-        ]
+           submitButton =
+               case model.subtrahend.value of
+                   Just cidr ->
+                       button [ type_ "button", onClick (Subtract minuend cidr) ] [ text "Subtract" ]
+
+                   Nothing ->
+                       button [ type_ "button", disabled True ] [ text "Subtract" ]
+       in
+       div []
+           [ h2 [] [ text "Subtract" ]
+           , form []
+               [ cidrInput SubtrahendInput model.subtrahend
+               , submitButton
+               ]
+           , result
+           ]
+-}
 
 
 appHeader : Model -> Html Msg
 appHeader model =
     let
-        hasError =
-            model.cidr.error /= ""
-
-        config =
-            { action = CidrInput
-            , label = "Enter a CIDR block"
-            , labelAttrs = [ class "text-xl font-bold mb-2" ]
-            , inputAttrs =
-                [ placeholder "0.0.0.0/0"
-                , class "w-full py-2 mb-2 no-outline bg-white text-2xl text-center border-b-4 border-blue-lighter"
-                , classList
-                    [ ( "text-blue-darker focus:border-blue", not hasError )
-                    , ( "text-red focus:border-red", hasError )
-                    ]
-                ]
-            , errorAttrs = [ class "text-sm text-red" ]
-            }
-
         input =
             ParsedInput.view
-                config
+                cidrConfig
                 [ class "flex flex-col items-center w-full max-w-sm" ]
-                model.cidr
+                model.cidrInput
     in
     header [ class "w-full my-4 flex flex-col items-center text-blue-darker" ]
         [ h1 [ class "text-5xl mb-6" ] [ text "cidrtool" ]
@@ -200,12 +229,13 @@ appHeader model =
 
 view : Model -> Html Msg
 view model =
-    case model.cidr.value of
+    case model.cidr of
         Just cidr ->
             div []
                 [ appHeader model
                 , cidrInfo cidr
-                , subtractor cidr model
+
+                -- , subtractor cidr model
                 ]
 
         Nothing ->

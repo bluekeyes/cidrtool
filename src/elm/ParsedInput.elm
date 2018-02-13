@@ -1,77 +1,140 @@
-module ParsedInput exposing (Config, State, initial, reset, update, view)
+module ParsedInput exposing (Config, Model, Msg, ViewConfig, initial, reset, update, view)
 
+import Debounce exposing (Debounce)
 import Html exposing (..)
 import Html.Attributes exposing (class, defaultValue, type_)
 import Html.Events exposing (onInput)
 import Html.Keyed
+import Task
+import Time
 
 
-type alias State a =
-    { key : Int
-    , value : Maybe a
-    , raw : String
-    , error : String
+type alias Config a msg =
+    { parser : String -> Result String a
+    , onValue : Maybe a -> msg
+    , onMsg : Msg a -> msg
+    , onView : Bool -> ViewConfig msg
     }
 
 
-initial : State a
+type alias ViewConfig msg =
+    { label : String
+    , labelAttrs : List (Html.Attribute msg)
+    , inputAttrs : List (Html.Attribute msg)
+    , errorAttrs : List (Html.Attribute msg)
+    }
+
+
+type Model
+    = Model
+        { key : Int
+        , raw : String
+        , error : String
+        , debounce : Debounce String
+        }
+
+
+type Msg a
+    = Input String
+    | Parsed (Result String a)
+    | DebounceMsg Debounce.Msg
+
+
+initial : Model
 initial =
-    { key = 0
-    , value = Nothing
-    , raw = ""
-    , error = ""
-    }
+    Model
+        { key = 0
+        , raw = ""
+        , error = ""
+        , debounce = Debounce.init
+        }
 
 
-update : (String -> Result String a) -> String -> State a -> State a
-update parser raw state =
-    case parser raw of
-        Ok value ->
-            { state | raw = raw, value = Just value, error = "" }
+update : Config a msg -> Msg a -> Model -> ( Model, Cmd msg )
+update config msg (Model model) =
+    case msg of
+        Input raw ->
+            let
+                ( debounce, cmd ) =
+                    Debounce.push (debounceConfig config.onMsg) raw model.debounce
+            in
+            ( Model { model | raw = raw, debounce = debounce }, cmd )
 
-        Err error ->
-            { state
-                | raw = raw
-                , value = Nothing
-                , error =
-                    if raw == "" then
-                        ""
-                    else
-                        error
-            }
+        Parsed result ->
+            case result of
+                Ok value ->
+                    ( Model { model | error = "" }
+                    , Task.perform config.onValue (Task.succeed (Just value))
+                    )
+
+                Err error ->
+                    let
+                        newError =
+                            if model.raw == "" then
+                                ""
+                            else
+                                error
+                    in
+                    ( Model { model | error = newError }
+                    , Task.perform config.onValue (Task.succeed Nothing)
+                    )
+
+        DebounceMsg msg ->
+            let
+                parse raw =
+                    config.parser raw
+                        |> Parsed
+                        |> Task.succeed
+                        |> Task.perform config.onMsg
+
+                ( debounce, cmd ) =
+                    Debounce.update
+                        (debounceConfig config.onMsg)
+                        (Debounce.takeLast parse)
+                        msg
+                        model.debounce
+            in
+            ( Model { model | debounce = debounce }, cmd )
 
 
-reset : State a -> State a
-reset state =
-    { key = state.key + 1
-    , value = Nothing
-    , raw = ""
-    , error = ""
-    }
+reset : Model -> Model
+reset (Model model) =
+    Model
+        { key = model.key + 1
+        , raw = ""
+        , error = ""
+        , debounce = Debounce.init
+        }
 
 
-type alias Config a =
-    { action : String -> a
-    , label : String
-    , labelAttrs : List (Html.Attribute a)
-    , inputAttrs : List (Html.Attribute a)
-    , errorAttrs : List (Html.Attribute a)
-    }
-
-
-view : Config a -> List (Html.Attribute a) -> State b -> Html a
-view config attrs state =
+view : Config a msg -> List (Html.Attribute msg) -> Model -> Html msg
+view config attrs (Model model) =
+    let
+        viewConfig =
+            config.onView (model.error /= "")
+    in
     Html.Keyed.node "div"
         attrs
-        [ ( "label", label config.labelAttrs [ text config.label ] )
-        , ( toString state.key
+        [ ( "label", label viewConfig.labelAttrs [ text viewConfig.label ] )
+        , ( toString model.key
           , input
                 (type_ "text"
-                    :: defaultValue state.raw
-                    :: onInput config.action
-                    :: config.inputAttrs
+                    :: defaultValue model.raw
+                    :: onInput (Input >> config.onMsg)
+                    :: viewConfig.inputAttrs
                 )
                 []
           )
-        , ( "error", span config.errorAttrs [ text state.error ] )
+        , ( "error", span viewConfig.errorAttrs [ text model.error ] )
         ]
+
+
+
+--- INTERNAL HELPERS ---
+
+
+debounceConfig : (Msg a -> msg) -> Debounce.Config msg
+debounceConfig onMsg =
+    { strategy = Debounce.later (500 * Time.millisecond)
+    , transform = DebounceMsg >> onMsg
+    }
