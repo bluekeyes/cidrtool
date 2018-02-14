@@ -2,8 +2,9 @@ module Main exposing (..)
 
 import Cidr exposing (Cidr, Ip)
 import Html exposing (..)
-import Html.Attributes exposing (class, classList, defaultValue, disabled, placeholder, type_)
-import ParsedInput
+import Html.Attributes exposing (class, classList, disabled, placeholder, type_)
+import Html.Events as Events
+import ParsedInput exposing (Validity(..))
 
 
 main : Program Never Model Msg
@@ -71,8 +72,8 @@ cidrConfig =
             [ placeholder "0.0.0.0/0"
             , class "w-full py-2 mb-2 no-outline bg-white text-2xl text-center border-b-4 border-blue-lighter"
             , classList
-                [ ( "text-blue-darker focus:border-blue", validity == ParsedInput.Valid )
-                , ( "text-red focus:border-red", validity == ParsedInput.Invalid )
+                [ ( "text-blue-darker focus:border-blue", validity == Valid )
+                , ( "text-red focus:border-red", validity == Invalid )
                 ]
             ]
 
@@ -91,6 +92,27 @@ cidrConfig =
         }
 
 
+subtrahendConfig : ParsedInput.Config Cidr Msg
+subtrahendConfig =
+    let
+        inputAttrs =
+            always []
+
+        error err =
+            span [] [ text (Maybe.withDefault "" err) ]
+    in
+    ParsedInput.config
+        { parser = Cidr.fromString
+        , onValue = NewSubtrahend
+        , onMsg = SubtrahendInput
+        , customizations =
+            { attrs = []
+            , inputAttrs = inputAttrs
+            , error = error
+            }
+        }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -103,9 +125,8 @@ update msg model =
 
         SubtrahendInput inMsg ->
             let
-                -- TODO(bkeyes): use real config
                 ( inModel, cmd ) =
-                    ParsedInput.update cidrConfig inMsg model.subtrahendInput
+                    ParsedInput.update subtrahendConfig inMsg model.subtrahendInput
             in
             ( { model | subtrahendInput = inModel }, cmd )
 
@@ -127,22 +148,6 @@ update msg model =
 
 
 -- COMPONENTS --
-{-
-   cidrInput : (String -> Msg) -> ParsedInput.Model Cidr Msg -> Html Msg
-   cidrInput action state =
-       form [ class "w-full max-w-md" ]
-           [ Html.Keyed.node "div"
-               [ class "flex items-center justify-between" ]
-               [ ( "label", label [ class "flex-no-shrink min-w-1/4 font-bold" ] [ text "Enter a CIDR block" ] )
-               , ( toString state.key
-                 , input
-                       [ type_ "text", defaultValue state.raw, onInput action, class "no-outline bg-transparent border-b border-grey-dark focus:border-blue w-full text-gray-darker mx-3 py-1 px-2 text-center" ]
-                       []
-                 )
-               , ( "error", small [ class "flex-no-shrink min-w-1/4 text-red" ] [ text state.error ] )
-               ]
-           ]
--}
 
 
 cidrInfo : Cidr -> Html Msg
@@ -185,34 +190,31 @@ cidrTable cidrs =
     tableWithRows [ "CIDR Block", "First Address", "Last Address" ] (List.map toRow cidrs)
 
 
+subtractor : Cidr -> Model -> Html Msg
+subtractor minuend model =
+    let
+        result =
+            if List.isEmpty model.subtraction.result then
+                div [] [ text "No results" ]
+            else
+                div [] [ cidrTable model.subtraction.result ]
 
-{-
-   subtractor : Cidr -> Model -> Html Msg
-   subtractor minuend model =
-       let
-           result =
-               if List.isEmpty model.subtraction.result then
-                   div [] [ text "No results" ]
-               else
-                   div [] [ cidrTable model.subtraction.result ]
+        submitButton =
+            case model.subtrahend of
+                Just cidr ->
+                    button [ type_ "button", Events.onClick (Subtract minuend cidr) ] [ text "Subtract" ]
 
-           submitButton =
-               case model.subtrahend.value of
-                   Just cidr ->
-                       button [ type_ "button", onClick (Subtract minuend cidr) ] [ text "Subtract" ]
-
-                   Nothing ->
-                       button [ type_ "button", disabled True ] [ text "Subtract" ]
-       in
-       div []
-           [ h2 [] [ text "Subtract" ]
-           , form []
-               [ cidrInput SubtrahendInput model.subtrahend
-               , submitButton
-               ]
-           , result
-           ]
--}
+                Nothing ->
+                    button [ type_ "button", disabled True ] [ text "Subtract" ]
+    in
+    div []
+        [ h2 [] [ text "Subtract" ]
+        , form []
+            [ ParsedInput.view subtrahendConfig model.subtrahendInput
+            , submitButton
+            ]
+        , result
+        ]
 
 
 appHeader : Model -> Html Msg
@@ -238,8 +240,7 @@ view model =
             div []
                 [ appHeader model
                 , cidrInfo cidr
-
-                -- , subtractor cidr model
+                , subtractor cidr model
                 ]
 
         Nothing ->
