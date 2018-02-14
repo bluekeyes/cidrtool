@@ -1,27 +1,60 @@
-module ParsedInput exposing (Config, Model, Msg, ViewConfig, initial, reset, update, view)
+module ParsedInput
+    exposing
+        ( Config
+        , Customizations
+        , Model
+        , Msg
+        , Validity(..)
+        , config
+        , init
+        , reset
+        , update
+        , view
+        )
 
 import Debounce exposing (Debounce)
-import Html exposing (..)
-import Html.Attributes exposing (class, defaultValue, type_)
-import Html.Events exposing (onInput)
-import Html.Keyed
+import Html exposing (Attribute, Html)
+import Html.Attributes as Attr
+import Html.Events as Event
+import Html.Keyed as Keyed
 import Task
 import Time
 
 
-type alias Config a msg =
+type Config a msg
+    = Config
+        { parser : String -> Result String a
+        , onValue : Maybe a -> msg
+        , onMsg : Msg a -> msg
+        , customizations : Customizations msg
+        }
+
+
+config :
     { parser : String -> Result String a
     , onValue : Maybe a -> msg
     , onMsg : Msg a -> msg
-    , onView : Bool -> ViewConfig msg
+    , customizations : Customizations msg
     }
+    -> Config a msg
+config { parser, onValue, onMsg, customizations } =
+    Config
+        { parser = parser
+        , onValue = onValue
+        , onMsg = onMsg
+        , customizations = customizations
+        }
 
 
-type alias ViewConfig msg =
-    { label : String
-    , labelAttrs : List (Html.Attribute msg)
-    , inputAttrs : List (Html.Attribute msg)
-    , errorAttrs : List (Html.Attribute msg)
+type Validity
+    = Valid
+    | Invalid
+
+
+type alias Customizations msg =
+    { attrs : List (Attribute msg)
+    , inputAttrs : Validity -> List (Attribute msg)
+    , error : Maybe String -> Html msg
     }
 
 
@@ -29,7 +62,7 @@ type Model
     = Model
         { key : Int
         , raw : String
-        , error : String
+        , error : Maybe String
         , debounce : Debounce String
         }
 
@@ -40,18 +73,28 @@ type Msg a
     | DebounceMsg Debounce.Msg
 
 
-initial : Model
-initial =
+init : Model
+init =
     Model
         { key = 0
         , raw = ""
-        , error = ""
+        , error = Nothing
         , debounce = Debounce.init
         }
 
 
+validity : Maybe String -> Validity
+validity error =
+    case error of
+        Just _ ->
+            Invalid
+
+        Nothing ->
+            Valid
+
+
 update : Config a msg -> Msg a -> Model -> ( Model, Cmd msg )
-update config msg (Model model) =
+update (Config config) msg (Model model) =
     case msg of
         Input raw ->
             let
@@ -63,7 +106,7 @@ update config msg (Model model) =
         Parsed result ->
             case result of
                 Ok value ->
-                    ( Model { model | error = "" }
+                    ( Model { model | error = Nothing }
                     , Task.perform config.onValue (Task.succeed (Just value))
                     )
 
@@ -71,9 +114,9 @@ update config msg (Model model) =
                     let
                         newError =
                             if model.raw == "" then
-                                ""
+                                Nothing
                             else
-                                error
+                                Just error
                     in
                     ( Model { model | error = newError }
                     , Task.perform config.onValue (Task.succeed Nothing)
@@ -102,30 +145,30 @@ reset (Model model) =
     Model
         { key = model.key + 1
         , raw = ""
-        , error = ""
+        , error = Nothing
         , debounce = Debounce.init
         }
 
 
-view : Config a msg -> List (Html.Attribute msg) -> Model -> Html msg
-view config attrs (Model model) =
+view : Config a msg -> Model -> Html msg
+view (Config { onMsg, customizations }) (Model model) =
     let
-        viewConfig =
-            config.onView (model.error /= "")
+        attrs =
+            customizations.attrs
+
+        inputAttrs =
+            Attr.type_ "text"
+                :: Attr.defaultValue model.raw
+                :: Event.onInput (Input >> onMsg)
+                :: customizations.inputAttrs (validity model.error)
+
+        error =
+            customizations.error model.error
     in
-    Html.Keyed.node "div"
+    Keyed.node "div"
         attrs
-        [ ( "label", label viewConfig.labelAttrs [ text viewConfig.label ] )
-        , ( toString model.key
-          , input
-                (type_ "text"
-                    :: defaultValue model.raw
-                    :: onInput (Input >> config.onMsg)
-                    :: viewConfig.inputAttrs
-                )
-                []
-          )
-        , ( "error", span viewConfig.errorAttrs [ text model.error ] )
+        [ ( toString model.key, Html.input inputAttrs [] )
+        , ( "error", error )
         ]
 
 

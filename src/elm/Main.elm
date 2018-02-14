@@ -49,8 +49,8 @@ init =
     ( { cidr = Nothing
       , subtrahend = Nothing
       , subtraction = SubtractionModel [] []
-      , cidrInput = ParsedInput.initial
-      , subtrahendInput = ParsedInput.initial
+      , cidrInput = ParsedInput.init
+      , subtrahendInput = ParsedInput.init
       }
     , Cmd.none
     )
@@ -67,25 +67,28 @@ type Msg
 cidrConfig : ParsedInput.Config Cidr Msg
 cidrConfig =
     let
-        onView hasError =
-            { label = "Enter a CIDR block"
-            , labelAttrs = [ class "text-xl font-bold mb-2" ]
-            , inputAttrs =
-                [ placeholder "0.0.0.0/0"
-                , class "w-full py-2 mb-2 no-outline bg-white text-2xl text-center border-b-4 border-blue-lighter"
-                , classList
-                    [ ( "text-blue-darker focus:border-blue", not hasError )
-                    , ( "text-red focus:border-red", hasError )
-                    ]
+        inputAttrs validity =
+            [ placeholder "0.0.0.0/0"
+            , class "w-full py-2 mb-2 no-outline bg-white text-2xl text-center border-b-4 border-blue-lighter"
+            , classList
+                [ ( "text-blue-darker focus:border-blue", validity == ParsedInput.Valid )
+                , ( "text-red focus:border-red", validity == ParsedInput.Invalid )
                 ]
-            , errorAttrs = [ class "text-sm text-red" ]
-            }
+            ]
+
+        error err =
+            span [ class "block text-sm text-red text-center" ] [ text (Maybe.withDefault "" err) ]
     in
-    { parser = Cidr.fromString
-    , onValue = NewCidr
-    , onMsg = CidrInput
-    , onView = onView
-    }
+    ParsedInput.config
+        { parser = Cidr.fromString
+        , onValue = NewCidr
+        , onMsg = CidrInput
+        , customizations =
+            { attrs = [ class "w-full" ]
+            , inputAttrs = inputAttrs
+            , error = error
+            }
+        }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -214,16 +217,17 @@ cidrTable cidrs =
 
 appHeader : Model -> Html Msg
 appHeader model =
-    let
-        input =
-            ParsedInput.view
-                cidrConfig
-                [ class "flex flex-col items-center w-full max-w-sm" ]
-                model.cidrInput
-    in
     header [ class "w-full my-4 flex flex-col items-center text-blue-darker" ]
-        [ h1 [ class "text-5xl mb-6" ] [ text "cidrtool" ]
-        , input
+        [ h1
+            [ class "text-5xl mb-6" ]
+            [ text "cidrtool" ]
+        , div
+            [ class "flex flex-col items-center w-full max-w-sm" ]
+            [ label
+                [ class "text-xl font-bold mb-2" ]
+                [ text "Enter a CIDR block" ]
+            , ParsedInput.view cidrConfig model.cidrInput
+            ]
         ]
 
 
