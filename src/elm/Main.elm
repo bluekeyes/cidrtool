@@ -152,16 +152,16 @@ update msg model =
 
 cidrInfo : Cidr -> Html Msg
 cidrInfo cidr =
-    div []
-        [ h2 [] [ text (Cidr.toString cidr) ]
-        , dl []
-            [ dt [] [ text "Size" ]
+    div [ class "mb-4" ]
+        [ h2 [ class "mb-2 text-center" ] [ text (Cidr.toString cidr) ]
+        , dl [ class "grid grid-col-2 grid-cg-4 grid-rg-2 p-4 bg-white" ]
+            [ dt [ class "font-bold" ] [ text "Size" ]
             , dd [] [ text (toString (Cidr.size cidr)) ]
-            , dt [] [ text "Mask" ]
+            , dt [ class "font-bold" ] [ text "Mask" ]
             , dd [] [ text (Cidr.ipToString (Cidr.routingMask cidr)) ]
-            , dt [] [ text "First Address" ]
+            , dt [ class "font-bold" ] [ text "First Address" ]
             , dd [] [ text (Cidr.ipToString (Cidr.firstAddress cidr)) ]
-            , dt [] [ text "Last Address" ]
+            , dt [ class "font-bold" ] [ text "Last Address" ]
             , dd [] [ text (Cidr.ipToString (Cidr.lastAddress cidr)) ]
             ]
         ]
@@ -235,13 +235,16 @@ appHeader model =
 
 view : Model -> Html Msg
 view model =
-    case model.cidr of
-        Just cidr ->
-            div []
-                [ appHeader model
-                , cidrInfo cidr
-                , subtractor cidr model
-                ]
+    let
+        children =
+            case model.cidr of
+                Just cidr ->
+                    [ appHeader model
+                    , cidrInfo cidr
+                    , subtractor cidr model
+                    ]
 
-        Nothing ->
-            div [] [ appHeader model ]
+                Nothing ->
+                    [ appHeader model ]
+    in
+    div [ class "max-w-md mx-auto flex flex-col items-center" ] children
