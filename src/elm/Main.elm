@@ -57,11 +57,15 @@ init =
     )
 
 
+type CidrInput
+    = Primary
+    | Subtrahend
+
+
 type Msg
-    = CidrInput (ParsedInput.Msg Cidr)
-    | SubtrahendInput (ParsedInput.Msg Cidr)
-    | NewCidr (Maybe Cidr)
+    = NewCidr (Maybe Cidr)
     | NewSubtrahend (Maybe Cidr)
+    | InputMsg CidrInput (ParsedInput.Msg Cidr)
     | Subtract Cidr Cidr
 
 
@@ -83,7 +87,7 @@ cidrConfig =
     ParsedInput.config
         { parser = Cidr.fromString
         , onValue = NewCidr
-        , onMsg = CidrInput
+        , onMsg = InputMsg Primary
         , customizations =
             { attrs = [ class "w-full" ]
             , inputAttrs = inputAttrs
@@ -104,7 +108,7 @@ subtrahendConfig =
     ParsedInput.config
         { parser = Cidr.fromString
         , onValue = NewSubtrahend
-        , onMsg = SubtrahendInput
+        , onMsg = InputMsg Subtrahend
         , customizations =
             { attrs = []
             , inputAttrs = inputAttrs
@@ -116,25 +120,21 @@ subtrahendConfig =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        CidrInput inMsg ->
-            let
-                ( inModel, cmd ) =
-                    ParsedInput.update cidrConfig inMsg model.cidrInput
-            in
-            ( { model | cidrInput = inModel }, cmd )
-
-        SubtrahendInput inMsg ->
-            let
-                ( inModel, cmd ) =
-                    ParsedInput.update subtrahendConfig inMsg model.subtrahendInput
-            in
-            ( { model | subtrahendInput = inModel }, cmd )
-
         NewCidr cidr ->
             ( { model | cidr = cidr }, Cmd.none )
 
         NewSubtrahend cidr ->
             ( { model | subtrahend = cidr }, Cmd.none )
+
+        InputMsg input msg ->
+            case input of
+                Primary ->
+                    ParsedInput.update cidrConfig msg model.cidrInput
+                        |> Tuple.mapFirst (\m -> { model | cidrInput = m })
+
+                Subtrahend ->
+                    ParsedInput.update subtrahendConfig msg model.subtrahendInput
+                        |> Tuple.mapFirst (\m -> { model | subtrahendInput = m })
 
         -- TODO(bkeyes): take two args or use Maybe.map2 on model?
         Subtract minuend subtrahend ->
