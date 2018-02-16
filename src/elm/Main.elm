@@ -74,10 +74,10 @@ cidrConfig =
     let
         inputAttrs validity =
             [ placeholder "0.0.0.0/0"
-            , class "w-full py-2 mb-2 no-outline bg-white text-2xl text-center border-b-4 border-blue-lighter"
+            , class "w-full py-2 mb-2 no-outline bg-white text-4xl text-center border-b-8 border-gray-light rounded-sm"
             , classList
-                [ ( "text-blue-darker focus:border-blue", validity == Valid )
-                , ( "text-red focus:border-red", validity == Invalid )
+                [ ( "text-gray-darkest hover:border-blue focus:border-blue", validity == Valid )
+                , ( "text-red hover:border-red focus:border-red", validity == Invalid )
                 ]
             ]
 
@@ -152,9 +152,9 @@ update msg model =
 
 cidrInfo : Cidr -> Html Msg
 cidrInfo cidr =
-    div [ class "mb-4" ]
-        [ h2 [ class "mb-2 text-center" ] [ text (Cidr.toString cidr) ]
-        , dl [ class "grid grid-col-2 grid-cg-4 grid-rg-2 p-4 bg-white" ]
+    div [ class "mb-4 p-4 bg-white shadow rounded-sm w-full" ]
+        [ h2 [ class "pb-4 mb-4 text-2xlg text-center leading-none border-b border-gray-light" ] [ text "Details" ]
+        , dl [ class "mx-auto grid grid-col-2 grid-cg-4 grid-rg-2 text-lg" ]
             [ dt [ class "font-bold" ] [ text "Size" ]
             , dd [] [ text (toString (Cidr.size cidr)) ]
             , dt [ class "font-bold" ] [ text "Mask" ]
@@ -199,17 +199,24 @@ subtractor minuend model =
             else
                 div [] [ cidrTable model.subtraction.result ]
 
+        btnClass disabled =
+            classList
+                [ ( "bg-blue text-white font-bold py-2 px-4 rounded", True )
+                , ( "hover:bg-blue-dark", not disabled )
+                , ( "opacity-50 cursor-not-allowed", disabled )
+                ]
+
         submitButton =
             case model.subtrahend of
                 Just cidr ->
-                    button [ type_ "button", Events.onClick (Subtract minuend cidr) ] [ text "Subtract" ]
+                    button [ type_ "button", btnClass False, Events.onClick (Subtract minuend cidr) ] [ text "Subtract" ]
 
                 Nothing ->
-                    button [ type_ "button", disabled True ] [ text "Subtract" ]
+                    button [ type_ "button", btnClass True, disabled True ] [ text "Subtract" ]
     in
-    div []
-        [ h2 [] [ text "Subtract" ]
-        , form []
+    div [ class "mb-4 p-4 bg-white shadow rounded-sm w-full" ]
+        [ h2 [ class "pb-4 mb-4 text-2xlg text-center leading-none border-b border-gray-light" ] [ text "Subtract" ]
+        , form [ class "flex flex-row" ]
             [ ParsedInput.view subtrahendConfig model.subtrahendInput
             , submitButton
             ]
@@ -219,15 +226,15 @@ subtractor minuend model =
 
 appHeader : Model -> Html Msg
 appHeader model =
-    header [ class "w-full my-4 flex flex-col items-center text-blue-darker" ]
+    header [ class "w-full my-4 flex flex-col items-center text-black" ]
         [ h1
             [ class "text-5xl mb-6" ]
             [ text "cidrtool" ]
         , div
-            [ class "flex flex-col items-center w-full max-w-sm" ]
+            [ class "flex flex-col items-center w-full" ]
             [ label
-                [ class "text-xl font-bold mb-2" ]
-                [ text "Enter a CIDR block" ]
+                [ class "text-l mb-2" ]
+                [ text "Enter a CIDR block:" ]
             , ParsedInput.view cidrConfig model.cidrInput
             ]
         ]
@@ -247,4 +254,4 @@ view model =
                 Nothing ->
                     [ appHeader model ]
     in
-    div [ class "max-w-md mx-auto flex flex-col items-center" ] children
+    div [ class "max-w-sm mx-auto flex flex-col items-center" ] children
