@@ -74,7 +74,7 @@ cidrConfig =
     let
         inputAttrs validity =
             [ placeholder "0.0.0.0/0"
-            , class "w-full py-2 mb-2 no-outline bg-white text-4xl text-center border-b-8 border-gray-light rounded-sm"
+            , class "w-full py-2 mb-2 appearance-none no-outline bg-white text-4xl text-center border-b-8 border-gray-light rounded-sm"
             , classList
                 [ ( "text-gray-darkest hover:border-blue focus:border-blue", validity == Valid )
                 , ( "text-red hover:border-red focus:border-red", validity == Invalid )
@@ -99,18 +99,26 @@ cidrConfig =
 subtrahendConfig : ParsedInput.Config Cidr Msg
 subtrahendConfig =
     let
-        inputAttrs =
-            always []
+        inputAttrs validity =
+            [ placeholder "0.0.0.0/0"
+            , class "w-full py-2 appearance-none text-lg text-center rounded-sm border border-gray-light"
+            , classList
+                [ ( "text-gray-darkest", validity == Valid )
+                , ( "text-red", validity == Invalid )
+                ]
+            ]
 
         error err =
-            span [] [ text (Maybe.withDefault "" err) ]
+            span [ class "absolute block pin-x pin-u py-2 text-sm text-red text-center" ] [ text (Maybe.withDefault "" err) ]
     in
     ParsedInput.config
         { parser = Cidr.fromString
         , onValue = NewSubtrahend
         , onMsg = InputMsg Subtrahend
         , customizations =
-            { attrs = []
+            { attrs =
+                [ class "relative mr-2 flex-1"
+                ]
             , inputAttrs = inputAttrs
             , error = error
             }
@@ -154,7 +162,7 @@ cidrInfo : Cidr -> Html Msg
 cidrInfo cidr =
     div [ class "mb-4 p-4 bg-white shadow rounded-sm w-full" ]
         [ h2 [ class "pb-4 mb-4 text-2xlg text-center leading-none border-b border-gray-light" ] [ text "Details" ]
-        , dl [ class "mx-auto grid grid-col-2 grid-cg-4 grid-rg-2 text-lg" ]
+        , dl [ class "dl-grid dl-grid-center mx-auto text-lg" ]
             [ dt [ class "font-bold" ] [ text "Size" ]
             , dd [] [ text (toString (Cidr.size cidr)) ]
             , dt [ class "font-bold" ] [ text "Mask" ]
