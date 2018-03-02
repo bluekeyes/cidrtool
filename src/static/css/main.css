@@ -36,3 +36,30 @@
 .dl-grid-center dd {
   grid-column: 3 / span 1;
 }
+
+.arrow-red-dark::before {
+  /* TODO(bkeyes): reference this as a variable? */
+  border-color: #CC1F1A;
+}
+
+.arrow-2::before {
+  border-width: 0.5rem;
+}
+
+.arrow-3::before {
+  border-width: 0.75rem;
+}
+
+.arrow-tc::before {
+  content: "";
+
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  border-style: solid;
+  border-top-color: transparent;
+  border-left-color: transparent;
+  border-right-color: transparent;
+}

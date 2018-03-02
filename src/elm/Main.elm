@@ -74,15 +74,22 @@ cidrConfig =
     let
         inputAttrs validity =
             [ placeholder "0.0.0.0/0"
-            , class "w-full py-2 mb-2 appearance-none no-outline bg-white text-4xl text-center border-b-8 border-gray-light rounded-sm"
+            , class "block w-full py-2 appearance-none no-outline bg-white text-4xl text-center border-b-8 border-gray-light rounded-sm"
             , classList
                 [ ( "text-gray-darkest hover:border-blue focus:border-blue", validity == Valid )
-                , ( "text-red hover:border-red focus:border-red", validity == Invalid )
+                , ( "text-red-dark hover:border-red-dark focus:border-red-dark", validity == Invalid )
                 ]
             ]
 
         error err =
-            span [ class "block text-sm text-red text-center" ] [ text (Maybe.withDefault "" err) ]
+            case err of
+                Nothing ->
+                    text ""
+
+                Just e ->
+                    span
+                        [ class "block relative p-2 mt-4 arrow-tc arrow-red-dark arrow-3 rounded shadow-md text-sm text-white text-center bg-red-dark" ]
+                        [ text e ]
     in
     ParsedInput.config
         { parser = Cidr.fromString
@@ -104,12 +111,19 @@ subtrahendConfig =
             , class "w-full py-2 appearance-none text-lg text-center rounded-sm border border-gray-light"
             , classList
                 [ ( "text-gray-darkest", validity == Valid )
-                , ( "text-red", validity == Invalid )
+                , ( "text-red-dark", validity == Invalid )
                 ]
             ]
 
         error err =
-            span [ class "absolute block pin-x pin-u py-2 text-sm text-red text-center" ] [ text (Maybe.withDefault "" err) ]
+            case err of
+                Nothing ->
+                    text ""
+
+                Just e ->
+                    span
+                        [ class "block absolute pin-x pin-u p-2 mt-3 arrow-tc arrow-red-dark arrow-2 rounded shadow-md text-sm text-white text-center bg-red-dark" ]
+                        [ text e ]
     in
     ParsedInput.config
         { parser = Cidr.fromString
@@ -201,9 +215,22 @@ cidrTable cidrs =
 subtractor : Cidr -> Model -> Html Msg
 subtractor minuend model =
     let
+        subtrahend s =
+            li [] [ text (Cidr.toString s) ]
+
+        operands =
+            if List.isEmpty model.subtraction.subtrahends then
+                text ""
+            else
+                div [ class "text-right mb-2 border-b-4 border-black" ]
+                    [ h3 [ class "mb-1 text-3xl" ] [ text (Cidr.toString minuend) ]
+                    , ol [ class "list-reset text-lg mb-2" ]
+                        (List.map subtrahend model.subtraction.subtrahends)
+                    ]
+
         result =
             if List.isEmpty model.subtraction.result then
-                div [] [ text "No results" ]
+                text ""
             else
                 div [] [ cidrTable model.subtraction.result ]
 
@@ -224,10 +251,11 @@ subtractor minuend model =
     in
     div [ class "mb-4 p-4 bg-white shadow rounded-sm w-full" ]
         [ h2 [ class "pb-4 mb-4 text-2xlg text-center leading-none border-b border-gray-light" ] [ text "Subtract" ]
-        , form [ class "flex flex-row" ]
+        , form [ class "flex flex-row mb-4" ]
             [ ParsedInput.view subtrahendConfig model.subtrahendInput
             , submitButton
             ]
+        , operands
         , result
         ]
 
