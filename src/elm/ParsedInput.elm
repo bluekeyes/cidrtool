@@ -7,6 +7,7 @@ module ParsedInput
         , Validity(..)
         , config
         , init
+        , refresh
         , reset
         , update
         , view
@@ -150,6 +151,11 @@ reset (Model model) =
         }
 
 
+refresh : Model -> Model
+refresh (Model model) =
+    Model { model | key = model.key + 1 }
+
+
 view : Config a msg -> Model -> Html msg
 view (Config { onMsg, customizations }) (Model model) =
     let
@@ -178,6 +184,6 @@ view (Config { onMsg, customizations }) (Model model) =
 
 debounceConfig : (Msg a -> msg) -> Debounce.Config msg
 debounceConfig onMsg =
-    { strategy = Debounce.later (500 * Time.millisecond)
+    { strategy = Debounce.later (250 * Time.millisecond)
     , transform = DebounceMsg >> onMsg
     }

@@ -1,10 +1,12 @@
 module Main exposing (..)
 
+import Button
 import Cidr exposing (Cidr, Ip)
 import Html exposing (..)
 import Html.Attributes exposing (class, classList, disabled, placeholder, type_)
 import Html.Events as Events
 import ParsedInput exposing (Validity(..))
+import Task
 
 
 main : Program Never Model Msg
@@ -67,6 +69,7 @@ type Msg
     | NewSubtrahend (Maybe Cidr)
     | InputMsg CidrInput (ParsedInput.Msg Cidr)
     | Subtract Cidr Cidr
+    | ResetSubtraction
 
 
 cidrConfig : ParsedInput.Config Cidr Msg
@@ -139,11 +142,16 @@ subtrahendConfig =
         }
 
 
+send : Msg -> Cmd Msg
+send msg =
+    Task.perform identity (Task.succeed msg)
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         NewCidr cidr ->
-            ( { model | cidr = cidr }, Cmd.none )
+            ( { model | cidr = cidr }, send ResetSubtraction )
 
         NewSubtrahend cidr ->
             ( { model | subtrahend = cidr }, Cmd.none )
@@ -158,10 +166,19 @@ update msg model =
                     ParsedInput.update subtrahendConfig msg model.subtrahendInput
                         |> Tuple.mapFirst (\m -> { model | subtrahendInput = m })
 
-        -- TODO(bkeyes): take two args or use Maybe.map2 on model?
         Subtract minuend subtrahend ->
             ( { model
                 | subtraction = subtract minuend subtrahend model.subtraction
+                , subtrahend = Nothing
+                , subtrahendInput = ParsedInput.reset model.subtrahendInput
+              }
+            , Cmd.none
+            )
+
+        ResetSubtraction ->
+            ( { model
+                | subtraction = SubtractionModel [] []
+                , subtrahend = Nothing
                 , subtrahendInput = ParsedInput.reset model.subtrahendInput
               }
             , Cmd.none
@@ -189,74 +206,81 @@ cidrInfo cidr =
         ]
 
 
-tableWithRows : List String -> List (Html Msg) -> Html Msg
-tableWithRows headers rows =
-    table []
-        [ thead [] [ tr [] (List.map (\s -> th [] [ text s ]) headers) ]
-        , tbody [] rows
-        ]
-
-
-cidrTable : List Cidr -> Html Msg
-cidrTable cidrs =
-    let
-        toRow : Cidr -> Html Msg
-        toRow cidr =
-            tr []
-                [ td [] [ text (Cidr.toString cidr) ]
-                , td [] [ text (Cidr.ipToString (Cidr.firstAddress cidr)) ]
-                , td [] [ text (Cidr.ipToString (Cidr.lastAddress cidr)) ]
-                ]
-    in
-    -- TODO(bkeyes): columns make it hard to copy just the blocks
-    tableWithRows [ "CIDR Block", "First Address", "Last Address" ] (List.map toRow cidrs)
-
-
 subtractor : Cidr -> Model -> Html Msg
 subtractor minuend model =
     let
         subtrahend s =
-            li [] [ text (Cidr.toString s) ]
+            [ span [ class "text-xl" ] [ text "−" ]
+            , b [ class "text-xl font-normal" ] [ text (Cidr.toString s) ]
+            ]
 
         operands =
-            if List.isEmpty model.subtraction.subtrahends then
-                text ""
-            else
-                div [ class "text-right mb-2 border-b-4 border-black" ]
-                    [ h3 [ class "mb-1 text-3xl" ] [ text (Cidr.toString minuend) ]
-                    , ol [ class "list-reset text-lg mb-2" ]
-                        (List.map subtrahend model.subtraction.subtrahends)
-                    ]
+            div [ class "mb-4 px-4 text-right border-b-2 border-gray-darkest expr-grid" ]
+                (b [ class "text-3xl font-bold" ] [ text (Cidr.toString minuend) ]
+                    :: List.concatMap subtrahend (List.reverse model.subtraction.subtrahends)
+                )
 
         result =
+            let
+                item cidr =
+                    li [ class "mb-1" ] [ text (Cidr.toString cidr) ]
+            in
             if List.isEmpty model.subtraction.result then
-                text ""
+                div [ class "italic text-center" ] [ text "Nothing" ]
             else
-                div [] [ cidrTable model.subtraction.result ]
-
-        btnClass disabled =
-            classList
-                [ ( "bg-blue text-white font-bold py-2 px-4 rounded", True )
-                , ( "hover:bg-blue-dark", not disabled )
-                , ( "opacity-50 cursor-not-allowed", disabled )
-                ]
+                ol [ class "list-reset px-4 text-lg text-right" ] (List.map item model.subtraction.result)
 
         submitButton =
-            case model.subtrahend of
-                Just cidr ->
-                    button [ type_ "button", btnClass False, Events.onClick (Subtract minuend cidr) ] [ text "Subtract" ]
+            let
+                isDisabled =
+                    model.subtrahend
+                        |> Maybe.map (always False)
+                        |> Maybe.withDefault True
+            in
+            Button.view
+                { style = Button.Normal
+                , disabled = isDisabled
+                , attrs = [ type_ "submit", class "mr-2" ]
+                }
+                "Subtract"
 
-                Nothing ->
-                    button [ type_ "button", btnClass True, disabled True ] [ text "Subtract" ]
+        resetButton =
+            let
+                isDisabled =
+                    List.isEmpty model.subtraction.subtrahends
+            in
+            Button.view
+                { style = Button.Border
+                , disabled = isDisabled
+                , attrs = [ type_ "button", Events.onClick ResetSubtraction ]
+                }
+                "Reset"
+
+        subtrahendForm =
+            let
+                attrs =
+                    case model.subtrahend of
+                        Just cidr ->
+                            [ Events.onSubmit (Subtract minuend cidr) ]
+
+                        Nothing ->
+                            []
+            in
+            form (class "flex flex-row mb-4" :: attrs)
+                [ ParsedInput.view subtrahendConfig model.subtrahendInput
+                , submitButton
+                , resetButton
+                ]
     in
     div [ class "mb-4 p-4 bg-white shadow rounded-sm w-full" ]
         [ h2 [ class "pb-4 mb-4 text-2xlg text-center leading-none border-b border-gray-light" ] [ text "Subtract" ]
-        , form [ class "flex flex-row mb-4" ]
-            [ ParsedInput.view subtrahendConfig model.subtrahendInput
-            , submitButton
-            ]
-        , operands
-        , result
+        , subtrahendForm
+        , div [ class "px-12" ]
+            (if List.isEmpty model.subtraction.subtrahends then
+                []
+             else
+                [ operands, result ]
+            )
         ]
 
 
