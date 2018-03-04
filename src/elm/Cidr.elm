@@ -224,6 +224,10 @@ intersects cidr other =
 subtract : Cidr -> List Cidr -> List Cidr
 subtract minuend subtrahends =
     let
+        {- Produces a list of start and end IPs for the spaces between the
+           CIDR blocks in the list that are contained in the given address
+           range. The blocks must be sorted by ascending start address.
+        -}
         toRanges : Ip -> Ip -> List Cidr -> List ( Ip, Ip )
         toRanges start end cidrs =
             case cidrs of
@@ -231,11 +235,20 @@ subtract minuend subtrahends =
                     [ ( start, end ) ]
 
                 c :: rest ->
-                    if firstAddress c <= start || nextAddress c <= start then
-                        toRanges (max start (nextAddress c)) end rest
+                    if firstAddress c >= end || nextAddress c <= start then
+                        -- block does not intersect with the range
+                        toRanges start end rest
+                    else if firstAddress c <= start then
+                        -- block starts before the range
+                        toRanges (nextAddress c) end rest
                     else
+                        -- block starts within the range
                         ( start, firstAddress c ) :: toRanges (nextAddress c) end rest
 
+        {- Finds the largest CIDR block starting at the first IP that ends
+           before the second IP. The initial value of `bits` determines the
+           largest block that may be returned.
+        -}
         largestFit : Ip -> Ip -> Int -> Maybe Cidr
         largestFit start end bits =
             let
@@ -249,6 +262,10 @@ subtract minuend subtrahends =
             else
                 largestFit start end (bits + 1)
 
+        {- Returns a set of CIDR blocks that completely fill the given IP
+           range. The value of `bits` determines the largest block that may be
+           returned.
+        -}
         fillRange : Int -> ( Ip, Ip ) -> List Cidr
         fillRange bits ( start, end ) =
             case largestFit start end bits of
