@@ -1,7 +1,7 @@
 module Main exposing (..)
 
-import Button
 import Cidr exposing (Cidr, Ip)
+import Components.Button as Button exposing (buttonWithOptions)
 import Html exposing (..)
 import Html.Attributes exposing (class, classList, disabled, placeholder, type_)
 import Html.Events as Events
@@ -236,24 +236,31 @@ subtractor minuend model =
                     model.subtrahend
                         |> Maybe.map (always False)
                         |> Maybe.withDefault True
+
+                opts =
+                    Button.defaultOptions
             in
-            Button.view
-                { style = Button.Normal
-                , disabled = isDisabled
-                , attrs = [ type_ "submit", class "mr-2" ]
+            buttonWithOptions
+                { opts
+                    | style = Button.Normal
+                    , type_ = Button.Submit
+                    , disabled = isDisabled
+                    , attrs = [ class "mr-2" ]
                 }
+                Nothing
                 "Subtract"
 
         resetButton =
             let
                 isDisabled =
                     List.isEmpty model.subtraction.subtrahends
+
+                opts =
+                    Button.defaultOptions
             in
-            Button.view
-                { style = Button.Border
-                , disabled = isDisabled
-                , attrs = [ type_ "button", Events.onClick ResetSubtraction ]
-                }
+            buttonWithOptions
+                { opts | style = Button.Outline, disabled = isDisabled }
+                (Just ResetSubtraction)
                 "Reset"
 
         subtrahendForm =
