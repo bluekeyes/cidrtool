@@ -207,7 +207,7 @@ subtrahendInput : Model -> Html Msg
 subtrahendInput model =
     CidrInput.view
         { style = CidrInput.Normal, onInput = SubtrahendMsg }
-        [ class "relative mr-2 flex-1" ]
+        [ class "mr-2 flex-1" ]
         model.subtrahend
 
 

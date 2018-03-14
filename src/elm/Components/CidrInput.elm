@@ -112,7 +112,7 @@ update msg (Model data) =
 view : Config msg -> List (Attribute msg) -> Model -> Html msg
 view config attrs (Model data) =
     Keyed.node "div"
-        attrs
+        ( Attr.class "relative" :: attrs )
         [ ( toString data.inputKey, viewInput config data )
         , ( "error"
           , case data.error of
@@ -159,11 +159,11 @@ viewError { style } error =
     let
         classlist =
             -- TODO(bkeyes): move most of this into the CSS file
-            -- TODO(bkeyes): can both styles use the same positioning?
             Attr.classList
                 [ ( "arrow-tc arrow-red-dark rounded shadow-md text-sm text-white text-center bg-red-dark", True )
-                , ( "absolute pin-x pin-u p-2 mt-3 arrow-2", style == Normal )
-                , ( "relative p-2 mt-4 arrow-3", style == Large )
+                , ( "absolute pin-x pin-u p-2", True )
+                , ( "mt-3 arrow-2", style == Normal )
+                , ( "mt-4 arrow-3", style == Large )
                 ]
     in
     Html.div [ classlist ] [ Html.text error ]
