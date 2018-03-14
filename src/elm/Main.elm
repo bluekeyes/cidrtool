@@ -186,7 +186,7 @@ subtractor minuend model =
                             []
             in
             form (class "flex flex-row mb-4" :: attrs)
-                [ Html.map SubtrahendMsg (CidrInput.view CidrInput.Normal [ class "relative mr-2 flex-1" ] model.subtrahend)
+                [ subtrahendInput model
                 , submitButton
                 , resetButton
                 ]
@@ -203,6 +203,14 @@ subtractor minuend model =
         ]
 
 
+subtrahendInput : Model -> Html Msg
+subtrahendInput model =
+    CidrInput.view
+        { style = CidrInput.Normal, onInput = SubtrahendMsg }
+        [ class "relative mr-2 flex-1" ]
+        model.subtrahend
+
+
 appHeader : Model -> Html Msg
 appHeader model =
     header [ class "w-full my-4 flex flex-col items-center text-black" ]
@@ -214,9 +222,17 @@ appHeader model =
             [ label
                 [ class "text-l mb-2" ]
                 [ text "Enter a CIDR block:" ]
-            , Html.map CidrMsg (CidrInput.view CidrInput.Large [ class "w-full" ] model.cidr)
+            , cidrInput model
             ]
         ]
+
+
+cidrInput : Model -> Html Msg
+cidrInput model =
+    CidrInput.view
+        { style = CidrInput.Large, onInput = CidrMsg }
+        [ class "w-full" ]
+        model.cidr
 
 
 view : Model -> Html Msg

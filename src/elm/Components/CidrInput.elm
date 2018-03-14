@@ -1,6 +1,7 @@
 module Components.CidrInput
     exposing
-        ( Model
+        ( Config
+        , Model
         , Msg
         , Style(..)
         , getValue
@@ -25,6 +26,16 @@ type Style
     | Large
 
 
+type alias Config msg =
+    { style : Style
+    , onInput : Msg -> msg
+    }
+
+
+type Model
+    = Model ModelData
+
+
 type alias ModelData =
     { raw : String
     , value : Maybe Cidr
@@ -32,10 +43,6 @@ type alias ModelData =
     , debounce : Debounce String
     , inputKey : Int
     }
-
-
-type Model
-    = Model ModelData
 
 
 type Msg
@@ -102,24 +109,24 @@ update msg (Model data) =
             ( Model { data | debounce = debounce }, cmd )
 
 
-view : Style -> List (Attribute Msg) -> Model -> Html Msg
-view style attrs (Model data) =
+view : Config msg -> List (Attribute msg) -> Model -> Html msg
+view config attrs (Model data) =
     Keyed.node "div"
         attrs
-        [ ( toString data.inputKey, viewInput style data )
+        [ ( toString data.inputKey, viewInput config data )
         , ( "error"
           , case data.error of
                 Nothing ->
                     Html.text ""
 
                 Just msg ->
-                    viewError style msg
+                    viewError config msg
           )
         ]
 
 
-viewInput : Style -> ModelData -> Html Msg
-viewInput style data =
+viewInput : Config msg -> ModelData -> Html msg
+viewInput { style, onInput } data =
     let
         hasError =
             data.error /= Nothing
@@ -140,15 +147,15 @@ viewInput style data =
             [ Attr.placeholder "0.0.0.0/0"
             , Attr.type_ "text"
             , Attr.defaultValue data.raw
-            , Event.onInput Input
+            , Event.onInput (Input >> onInput)
             , classlist
             ]
     in
     Html.input attrs []
 
 
-viewError : Style -> String -> Html Msg
-viewError style error =
+viewError : Config msg -> String -> Html msg
+viewError { style } error =
     let
         classlist =
             -- TODO(bkeyes): move most of this into the CSS file
