@@ -2,10 +2,10 @@ module Main exposing (..)
 
 import Cidr exposing (Cidr, Ip)
 import Components.Button as Button exposing (buttonWithOptions)
+import Components.CidrInput as CidrInput
 import Html exposing (..)
 import Html.Attributes exposing (class, classList, disabled, placeholder, type_)
 import Html.Events as Events
-import ParsedInput exposing (Validity(..))
 import Task
 
 
@@ -35,111 +35,27 @@ subtract minuend subtrahend model =
 
 
 type alias Model =
-    { cidr : Maybe Cidr
-
-    -- subtraction state
-    , subtrahend : Maybe Cidr
+    { cidr : CidrInput.Model
+    , subtrahend : CidrInput.Model
     , subtraction : SubtractionModel
-
-    -- input states
-    , cidrInput : ParsedInput.Model
-    , subtrahendInput : ParsedInput.Model
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { cidr = Nothing
-      , subtrahend = Nothing
+    ( { cidr = CidrInput.init
+      , subtrahend = CidrInput.init
       , subtraction = SubtractionModel [] []
-      , cidrInput = ParsedInput.init
-      , subtrahendInput = ParsedInput.init
       }
     , Cmd.none
     )
 
 
-type CidrInput
-    = Primary
-    | Subtrahend
-
-
 type Msg
-    = NewCidr (Maybe Cidr)
-    | NewSubtrahend (Maybe Cidr)
-    | InputMsg CidrInput (ParsedInput.Msg Cidr)
+    = CidrMsg CidrInput.Msg
+    | SubtrahendMsg CidrInput.Msg
     | Subtract Cidr Cidr
     | ResetSubtraction
-
-
-cidrConfig : ParsedInput.Config Cidr Msg
-cidrConfig =
-    let
-        inputAttrs validity =
-            [ placeholder "0.0.0.0/0"
-            , class "block w-full py-2 appearance-none no-outline bg-white text-4xl text-center border-b-8 border-gray-light rounded-sm"
-            , classList
-                [ ( "text-gray-darkest hover:border-blue focus:border-blue", validity == Valid )
-                , ( "text-red-dark hover:border-red-dark focus:border-red-dark", validity == Invalid )
-                ]
-            ]
-
-        error err =
-            case err of
-                Nothing ->
-                    text ""
-
-                Just e ->
-                    span
-                        [ class "block relative p-2 mt-4 arrow-tc arrow-red-dark arrow-3 rounded shadow-md text-sm text-white text-center bg-red-dark" ]
-                        [ text e ]
-    in
-    ParsedInput.config
-        { parser = Cidr.fromString
-        , onValue = NewCidr
-        , onMsg = InputMsg Primary
-        , customizations =
-            { attrs = [ class "w-full" ]
-            , inputAttrs = inputAttrs
-            , error = error
-            }
-        }
-
-
-subtrahendConfig : ParsedInput.Config Cidr Msg
-subtrahendConfig =
-    let
-        inputAttrs validity =
-            [ placeholder "0.0.0.0/0"
-            , class "w-full py-2 appearance-none text-lg text-center rounded-sm border border-gray-light"
-            , classList
-                [ ( "text-gray-darkest", validity == Valid )
-                , ( "text-red-dark", validity == Invalid )
-                ]
-            ]
-
-        error err =
-            case err of
-                Nothing ->
-                    text ""
-
-                Just e ->
-                    span
-                        [ class "block absolute pin-x pin-u p-2 mt-3 arrow-tc arrow-red-dark arrow-2 rounded shadow-md text-sm text-white text-center bg-red-dark" ]
-                        [ text e ]
-    in
-    ParsedInput.config
-        { parser = Cidr.fromString
-        , onValue = NewSubtrahend
-        , onMsg = InputMsg Subtrahend
-        , customizations =
-            { attrs =
-                [ class "relative mr-2 flex-1"
-                ]
-            , inputAttrs = inputAttrs
-            , error = error
-            }
-        }
 
 
 send : Msg -> Cmd Msg
@@ -150,27 +66,24 @@ send msg =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NewCidr cidr ->
-            ( { model | cidr = cidr }, send ResetSubtraction )
+        CidrMsg msg ->
+            let
+                ( cidr, cmd ) =
+                    CidrInput.update msg model.cidr
+            in
+            ( { model | cidr = cidr }, Cmd.map CidrMsg cmd )
 
-        NewSubtrahend cidr ->
-            ( { model | subtrahend = cidr }, Cmd.none )
-
-        InputMsg input msg ->
-            case input of
-                Primary ->
-                    ParsedInput.update cidrConfig msg model.cidrInput
-                        |> Tuple.mapFirst (\m -> { model | cidrInput = m })
-
-                Subtrahend ->
-                    ParsedInput.update subtrahendConfig msg model.subtrahendInput
-                        |> Tuple.mapFirst (\m -> { model | subtrahendInput = m })
+        SubtrahendMsg msg ->
+            let
+                ( subtrahend, cmd ) =
+                    CidrInput.update msg model.subtrahend
+            in
+            ( { model | subtrahend = subtrahend }, Cmd.map SubtrahendMsg cmd )
 
         Subtract minuend subtrahend ->
             ( { model
                 | subtraction = subtract minuend subtrahend model.subtraction
-                , subtrahend = Nothing
-                , subtrahendInput = ParsedInput.reset model.subtrahendInput
+                , subtrahend = CidrInput.reset model.subtrahend
               }
             , Cmd.none
             )
@@ -178,8 +91,7 @@ update msg model =
         ResetSubtraction ->
             ( { model
                 | subtraction = SubtractionModel [] []
-                , subtrahend = Nothing
-                , subtrahendInput = ParsedInput.reset model.subtrahendInput
+                , subtrahend = CidrInput.reset model.subtrahend
               }
             , Cmd.none
             )
@@ -233,7 +145,7 @@ subtractor minuend model =
         submitButton =
             let
                 isDisabled =
-                    model.subtrahend
+                    CidrInput.getValue model.subtrahend
                         |> Maybe.map (always False)
                         |> Maybe.withDefault True
 
@@ -266,7 +178,7 @@ subtractor minuend model =
         subtrahendForm =
             let
                 attrs =
-                    case model.subtrahend of
+                    case CidrInput.getValue model.subtrahend of
                         Just cidr ->
                             [ Events.onSubmit (Subtract minuend cidr) ]
 
@@ -274,7 +186,7 @@ subtractor minuend model =
                             []
             in
             form (class "flex flex-row mb-4" :: attrs)
-                [ ParsedInput.view subtrahendConfig model.subtrahendInput
+                [ Html.map SubtrahendMsg (CidrInput.view CidrInput.Normal [ class "relative mr-2 flex-1" ] model.subtrahend)
                 , submitButton
                 , resetButton
                 ]
@@ -302,7 +214,7 @@ appHeader model =
             [ label
                 [ class "text-l mb-2" ]
                 [ text "Enter a CIDR block:" ]
-            , ParsedInput.view cidrConfig model.cidrInput
+            , Html.map CidrMsg (CidrInput.view CidrInput.Large [ class "w-full" ] model.cidr)
             ]
         ]
 
@@ -311,7 +223,7 @@ view : Model -> Html Msg
 view model =
     let
         children =
-            case model.cidr of
+            case CidrInput.getValue model.cidr of
                 Just cidr ->
                     [ appHeader model
                     , cidrInfo cidr
