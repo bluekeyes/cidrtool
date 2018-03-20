@@ -1,12 +1,41 @@
 @tailwind preflight;
+
+/* custom components */
+
+.error-tooltip {
+  @apply .rounded .shadow-md .text-sm .text-white .text-center .bg-red-dark;
+  @apply .absolute .pin-x .p-2 .mt-3;
+
+  top: 100%;
+}
+
+.error-tooltip::before {
+  @apply .absolute .border-transparent;
+
+  border-bottom-color: config('colors.red-dark');
+  border-width: config('margin.2');
+  bottom: 100%;
+  content: "";
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.error-tooltip.error-tooltip--large {
+  @apply .p-3 .mt-4 .text-base;
+}
+
+.error-tooltip.error-tooltip--large::before {
+  border-width: config('margin.3');
+}
+
+/* standard utilities */
+
 @tailwind utilities;
+
+/* custom utilities */
 
 .no-outline {
   outline: none;
-}
-
-.pin-u {
-  top: 100%;
 }
 
 .dl-grid {
@@ -35,33 +64,6 @@
 
 .dl-grid-center dd {
   grid-column: 3 / span 1;
-}
-
-.arrow-red-dark::before {
-  /* TODO(bkeyes): reference this as a variable? */
-  border-color: #CC1F1A;
-}
-
-.arrow-2::before {
-  border-width: 0.5rem;
-}
-
-.arrow-3::before {
-  border-width: 0.75rem;
-}
-
-.arrow-tc::before {
-  content: "";
-
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-
-  border-style: solid;
-  border-top-color: transparent;
-  border-left-color: transparent;
-  border-right-color: transparent;
 }
 
 .expr-grid {

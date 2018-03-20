@@ -112,7 +112,7 @@ update msg (Model data) =
 view : Config msg -> List (Attribute msg) -> Model -> Html msg
 view config attrs (Model data) =
     Keyed.node "div"
-        ( Attr.class "relative" :: attrs )
+        (Attr.class "relative" :: attrs)
         [ ( toString data.inputKey, viewInput config data )
         , ( "error"
           , case data.error of
@@ -158,12 +158,9 @@ viewError : Config msg -> String -> Html msg
 viewError { style } error =
     let
         classlist =
-            -- TODO(bkeyes): move most of this into the CSS file
             Attr.classList
-                [ ( "arrow-tc arrow-red-dark rounded shadow-md text-sm text-white text-center bg-red-dark", True )
-                , ( "absolute pin-x pin-u p-2", True )
-                , ( "mt-3 arrow-2", style == Normal )
-                , ( "mt-4 arrow-3", style == Large )
+                [ ( "error-tooltip", True )
+                , ( "error-tooltip--large", style == Large )
                 ]
     in
     Html.div [ classlist ] [ Html.text error ]
