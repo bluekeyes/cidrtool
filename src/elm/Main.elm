@@ -1,12 +1,10 @@
 module Main exposing (..)
 
 import Cidr exposing (Cidr, Ip)
-import Components.Button as Button exposing (buttonWithOptions)
 import Components.CidrInput as CidrInput
+import Components.Subtractor as Subtractor
 import Html exposing (..)
-import Html.Attributes exposing (class, classList, disabled, placeholder, type_)
-import Html.Events as Events
-import Task
+import Html.Attributes exposing (class)
 
 
 main : Program Never Model Msg
@@ -19,33 +17,16 @@ main =
         }
 
 
-type alias SubtractionModel =
-    { subtrahends : List Cidr
-    , result : List Cidr
-    }
-
-
-subtract : Cidr -> Cidr -> SubtractionModel -> SubtractionModel
-subtract minuend subtrahend model =
-    let
-        subtrahends =
-            subtrahend :: model.subtrahends
-    in
-    { model | subtrahends = subtrahends, result = Cidr.subtract minuend subtrahends }
-
-
 type alias Model =
     { cidr : CidrInput.Model
-    , subtrahend : CidrInput.Model
-    , subtraction : SubtractionModel
+    , subtractor : Subtractor.Model
     }
 
 
 init : ( Model, Cmd Msg )
 init =
     ( { cidr = CidrInput.init
-      , subtrahend = CidrInput.init
-      , subtraction = SubtractionModel [] []
+      , subtractor = Subtractor.init
       }
     , Cmd.none
     )
@@ -53,14 +34,7 @@ init =
 
 type Msg
     = CidrMsg CidrInput.Msg
-    | SubtrahendMsg CidrInput.Msg
-    | Subtract Cidr Cidr
-    | ResetSubtraction
-
-
-send : Msg -> Cmd Msg
-send msg =
-    Task.perform identity (Task.succeed msg)
+    | SubtractMsg Subtractor.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -73,28 +47,12 @@ update msg model =
             in
             ( { model | cidr = cidr }, Cmd.map CidrMsg cmd )
 
-        SubtrahendMsg msg ->
+        SubtractMsg msg ->
             let
-                ( subtrahend, cmd ) =
-                    CidrInput.update msg model.subtrahend
+                ( subtractor, cmd ) =
+                    Subtractor.update msg model.subtractor
             in
-            ( { model | subtrahend = subtrahend }, Cmd.map SubtrahendMsg cmd )
-
-        Subtract minuend subtrahend ->
-            ( { model
-                | subtraction = subtract minuend subtrahend model.subtraction
-                , subtrahend = CidrInput.reset model.subtrahend
-              }
-            , Cmd.none
-            )
-
-        ResetSubtraction ->
-            ( { model
-                | subtraction = SubtractionModel [] []
-                , subtrahend = CidrInput.reset model.subtrahend
-              }
-            , Cmd.none
-            )
+            ( { model | subtractor = subtractor }, Cmd.map SubtractMsg cmd )
 
 
 
@@ -116,99 +74,6 @@ cidrInfo cidr =
             , dd [] [ text (Cidr.ipToString (Cidr.lastAddress cidr)) ]
             ]
         ]
-
-
-subtractor : Cidr -> Model -> Html Msg
-subtractor minuend model =
-    let
-        subtrahend s =
-            [ span [ class "text-xl" ] [ text "−" ]
-            , b [ class "text-xl font-normal" ] [ text (Cidr.toString s) ]
-            ]
-
-        operands =
-            div [ class "mb-4 px-4 text-right border-b-2 border-gray-darkest expr-grid" ]
-                (b [ class "text-3xl font-bold" ] [ text (Cidr.toString minuend) ]
-                    :: List.concatMap subtrahend (List.reverse model.subtraction.subtrahends)
-                )
-
-        result =
-            let
-                item cidr =
-                    li [ class "mb-1" ] [ text (Cidr.toString cidr) ]
-            in
-            if List.isEmpty model.subtraction.result then
-                div [ class "italic text-center" ] [ text "Nothing" ]
-            else
-                ol [ class "list-reset px-4 text-lg text-right" ] (List.map item model.subtraction.result)
-
-        submitButton =
-            let
-                isDisabled =
-                    CidrInput.getValue model.subtrahend
-                        |> Maybe.map (always False)
-                        |> Maybe.withDefault True
-
-                opts =
-                    Button.defaultOptions
-            in
-            buttonWithOptions
-                { opts
-                    | style = Button.Normal
-                    , type_ = Button.Submit
-                    , disabled = isDisabled
-                    , attrs = [ class "mr-2" ]
-                }
-                Nothing
-                "Subtract"
-
-        resetButton =
-            let
-                isDisabled =
-                    List.isEmpty model.subtraction.subtrahends
-
-                opts =
-                    Button.defaultOptions
-            in
-            buttonWithOptions
-                { opts | style = Button.Outline, disabled = isDisabled }
-                (Just ResetSubtraction)
-                "Reset"
-
-        subtrahendForm =
-            let
-                attrs =
-                    case CidrInput.getValue model.subtrahend of
-                        Just cidr ->
-                            [ Events.onSubmit (Subtract minuend cidr) ]
-
-                        Nothing ->
-                            []
-            in
-            form (class "flex flex-row mb-4" :: attrs)
-                [ subtrahendInput model
-                , submitButton
-                , resetButton
-                ]
-    in
-    div [ class "mb-4 p-4 bg-white shadow rounded-sm w-full" ]
-        [ h2 [ class "pb-4 mb-4 text-2xlg text-center leading-none border-b border-gray-light" ] [ text "Subtract" ]
-        , subtrahendForm
-        , div [ class "px-12" ]
-            (if List.isEmpty model.subtraction.subtrahends then
-                []
-             else
-                [ operands, result ]
-            )
-        ]
-
-
-subtrahendInput : Model -> Html Msg
-subtrahendInput model =
-    CidrInput.view
-        { style = CidrInput.Normal, onInput = SubtrahendMsg }
-        [ class "mr-2 flex-1" ]
-        model.subtrahend
 
 
 appHeader : Model -> Html Msg
@@ -243,7 +108,7 @@ view model =
                 Just cidr ->
                     [ appHeader model
                     , cidrInfo cidr
-                    , subtractor cidr model
+                    , Subtractor.view SubtractMsg cidr model.subtractor
                     ]
 
                 Nothing ->
