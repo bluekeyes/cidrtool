@@ -19,6 +19,7 @@ main =
 
 type alias Model =
     { cidr : CidrInput.Model
+    , current : Maybe Cidr
     , subtractor : Subtractor.Model
     }
 
@@ -26,6 +27,7 @@ type alias Model =
 init : ( Model, Cmd Msg )
 init =
     ( { cidr = CidrInput.init
+      , current = Nothing
       , subtractor = Subtractor.init
       }
     , Cmd.none
@@ -44,8 +46,23 @@ update msg model =
             let
                 ( cidr, cmd ) =
                     CidrInput.update msg model.cidr
+
+                newCurrent =
+                    CidrInput.getValue cidr
+
+                newSubtractor =
+                    if newCurrent == model.current then
+                        model.subtractor
+                    else
+                        Subtractor.reset model.subtractor
             in
-            ( { model | cidr = cidr }, Cmd.map CidrMsg cmd )
+            ( { model
+                | cidr = cidr
+                , current = newCurrent
+                , subtractor = newSubtractor
+              }
+            , Cmd.map CidrMsg cmd
+            )
 
         SubtractMsg msg ->
             let
@@ -104,7 +121,7 @@ view : Model -> Html Msg
 view model =
     let
         children =
-            case CidrInput.getValue model.cidr of
+            case model.current of
                 Just cidr ->
                     [ appHeader model
                     , cidrInfo cidr

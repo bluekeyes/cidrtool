@@ -3,6 +3,7 @@ module Components.Subtractor
         ( Model
         , Msg
         , init
+        , reset
         , update
         , view
         )
@@ -31,6 +32,11 @@ init =
     { input = CidrInput.init
     , subtrahends = []
     }
+
+
+reset : Model -> Model
+reset model =
+    { input = CidrInput.reset model.input, subtrahends = [] }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
