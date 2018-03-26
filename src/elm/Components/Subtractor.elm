@@ -8,10 +8,9 @@ module Components.Subtractor
         )
 
 import Cidr exposing (Cidr)
-import Components.Button as Button exposing (buttonWithOptions)
 import Components.CidrInput as CidrInput
-import Html exposing (Attribute, Html, b, div, h2, li, ol, span, text)
-import Html.Attributes exposing (class)
+import Html exposing (Attribute, Html, b, button, div, h2, li, ol, span, text)
+import Html.Attributes exposing (class, disabled, type_)
 import Html.Events as Event
 
 
@@ -128,31 +127,20 @@ subtrahendForm onMsg { input, subtrahends } =
 
 submitButton : Bool -> Html msg
 submitButton isDisabled =
-    let
-        opts =
-            Button.defaultOptions
-    in
-    buttonWithOptions
-        { opts
-            | style = Button.Normal
-            , type_ = Button.Submit
-            , disabled = isDisabled
-            , attrs = [ class "mr-2" ]
-        }
-        Nothing
-        "Subtract"
+    button
+        [ class "btn mr-2"
+        , type_ "submit"
+        , disabled isDisabled
+        ]
+        [ text "Subtract" ]
 
 
 resetButton : (Msg -> msg) -> Bool -> Html msg
 resetButton onMsg isDisabled =
-    let
-        opts =
-            Button.defaultOptions
-    in
-    buttonWithOptions
-        { opts
-            | style = Button.Outline
-            , disabled = isDisabled
-        }
-        (Just (onMsg Reset))
-        "Reset"
+    button
+        [ class "btn btn--outline"
+        , type_ "button"
+        , disabled isDisabled
+        , Event.onClick (onMsg Reset)
+        ]
+        [ text "Reset" ]
