@@ -3,7 +3,7 @@ module Main exposing (..)
 import Cidr exposing (Cidr, Ip)
 import Components.CidrInput as CidrInput
 import Components.Subtractor as Subtractor
-import Html exposing (..)
+import Html exposing (Html, dd, div, dl, dt, h1, h2, header, label, table, text)
 import Html.Attributes exposing (class)
 
 
