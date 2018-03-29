@@ -1,18 +1,30 @@
 const path = require('path');
 
-const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const ScriptExtHtmlWebpackPlugin = require('script-ext-html-webpack-plugin');
+const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 
 const entryPath = path.join(__dirname, 'src/static/index.js');
 const outputPath = path.join(__dirname, 'build');
-const outputFilename = '[name].js';
+
+const mode = process.env.NPM_LIFECYCLE_EVENT === 'build' ? 'production' : 'development';
+
+let modeSpecificPlugins;
+if (mode === 'production') {
+  modeSpecificPlugins = [
+    new OptimizeCssAssetsPlugin({}),
+  ];
+} else {
+  modeSpecificPlugins = [];
+}
 
 module.exports = {
+  mode: mode,
   entry: entryPath,
   output: {
     path: outputPath,
-    filename: `static/js/${outputFilename}`,
+    filename: 'static/js/[name].[chunkhash].js',
   },
   module: {
     noParse: /\.elm$/,
@@ -31,23 +43,18 @@ module.exports = {
       },
       {
         test: /\.css$/,
-        use: ExtractTextPlugin.extract({
-          fallback: 'style-loader',
-          use: [
-            {
-              loader: 'css-loader',
-              options: {
-                importLoaders: 1
-              }
-            },
-            'postcss-loader'
-          ]
-        })
+        use: [
+          MiniCssExtractPlugin.loader,
+          'css-loader',
+          'postcss-loader',
+        ],
       }
     ]
   },
   plugins: [
-    new ExtractTextPlugin('static/css/[name].css'),
+    new MiniCssExtractPlugin({
+      filename: 'static/css/[name].[chunkhash].css',
+    }),
     new HtmlWebpackPlugin({
       template: 'src/static/index.html',
       filename: 'index.html',
@@ -55,6 +62,7 @@ module.exports = {
     }),
     new ScriptExtHtmlWebpackPlugin({
       defaultAttribute: 'defer',
-    })
+    }),
+    ...modeSpecificPlugins,
   ]
 }
