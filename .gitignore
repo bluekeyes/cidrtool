@@ -1,0 +1,6 @@
+# Elm generated files
+elm-stuff/
+build/
+
+# NPM files
+node_modules/
