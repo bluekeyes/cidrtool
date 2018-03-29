@@ -1,7 +1,7 @@
 # cidrtool
 
 A simple application and Elm library for inspecting and subtracting CIDR
-blocks.
+blocks. Try it out: https://bluekeyes.github.io/cidrtool/
 
 ## Why?
 
