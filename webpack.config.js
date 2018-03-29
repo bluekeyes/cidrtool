@@ -37,7 +37,7 @@ module.exports = {
           options: {
             verbose: true,
             warn: true,
-            debug: true,
+            debug: mode !== 'production',
           }
         }]
       },
