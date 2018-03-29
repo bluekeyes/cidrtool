@@ -8,7 +8,7 @@ const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 const entryPath = path.join(__dirname, 'src/static/index.js');
 const outputPath = path.join(__dirname, 'build');
 
-const mode = process.env.NPM_LIFECYCLE_EVENT === 'build' ? 'production' : 'development';
+const mode = process.env.npm_lifecycle_event === 'build' ? 'production' : 'development';
 
 let modeSpecificPlugins;
 if (mode === 'production') {
